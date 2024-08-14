@@ -1,0 +1,65 @@
+name: Update Documentation
+
+on:
+  push:
+    branches: ["*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Doxygen
+        uses: ssciwr/doxygen-install@v1
+        with:
+          version: "1.10.0"
+
+      - name: Install xmake
+        run: |
+          sudo add-apt-repository ppa:xmake-io/xmake
+          sudo apt-get -y update
+          sudo apt-get -y install xmake
+
+      - name: Install Graphviz
+        run: sudo apt-get -y install graphviz
+
+      - name: Install LibGS
+        run: sudo apt-get -y install libgs9 libgs9-common
+
+      - name: Install Sphinx Tools
+        run: |
+          pip install sphinx breathe exhale myst-parser docutils pydata-sphinx-theme sphinx-sitemap
+
+      - name: Install Toolchains PPA
+        run: |
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt-get -y update
+
+      - name: Install GCC
+        run: sudo apt-get -y install gcc-13 g++-13
+
+      - name: Configure Linux
+        working-directory: ${{github.workspace}}
+        run: |
+          xmake f -c -y --toolchain=gcc-13
+          xmake project -k compile_commands
+
+      - name: Build Linux
+        working-directory: ${{github.workspace}}
+        run: |
+          mkdir -p docs/_build/html
+          touch docs/_build/html/.nojekyll
+          xmake b hyperion_std_docs
+
+      - name: Push Docs
+        if: github.ref == 'refs/heads/main'
+        uses: s0/git-publish-subdir-action@develop
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: self
+          BRANCH: gh-pages
+          FOLDER: docs/_build/html
+
