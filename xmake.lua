@@ -61,10 +61,10 @@ add_requires("fmt", {
 --})
 
 local hyperion_std_main_headers = {
-    "$(projectdir)/include/hyperion/enum.h",
+    "$(projectdir)/include/hyperion/variant.h",
 }
 local hyperion_std_enum_headers = {
-    "$(projectdir)/include/hyperion/enum/storage.h",
+    "$(projectdir)/include/hyperion/variant/storage.h",
 }
 local hyperion_std_sources = {
     --"$(projectdir)/src/std/detail/parser.cpp",

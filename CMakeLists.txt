@@ -15,7 +15,7 @@ set(HYPERION_USE_FETCH_CONTENT
     ${HYPERION_USE_FETCH_CONTENT}
     CACHE
     INTERNAL
-    "force depedencies's `HYPERION_USE_FETCH_CONTENT` to the value of this top-level project")
+    "force dependencies's `HYPERION_USE_FETCH_CONTENT` to the value of this top-level project")
 
 if(HYPERION_USE_FETCH_CONTENT)
     include(FetchContent)
@@ -81,8 +81,8 @@ set(HYPERION_STD_INCLUDE_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/include/hyperion"
 )
 set(HYPERION_STD_HEADERS
-    "${HYPERION_STD_INCLUDE_PATH}/enum.h"
-    "${HYPERION_STD_INCLUDE_PATH}/enum/storage.h"
+    "${HYPERION_STD_INCLUDE_PATH}/variant.h"
+    "${HYPERION_STD_INCLUDE_PATH}/variant/storage.h"
 )
 
 add_library(hyperion_std STATIC)
