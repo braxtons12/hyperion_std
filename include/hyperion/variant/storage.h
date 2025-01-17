@@ -104,9 +104,22 @@ namespace hyperion::enum_::detail {
         }
     }
 
+    static constexpr auto enable_ebo(mpl::MetaList auto list) -> bool {
+        return list.all_of([](mpl::MetaType auto type) {
+            return type.template satisfies<std::is_empty>()
+                   and type.template satisfies<std::is_trivial>();
+        });
+    }
+
+    static constexpr auto disable_ebo(mpl::MetaList auto list) -> bool {
+        return list.any_of([](mpl::MetaType auto type) {
+            return not type.template satisfies<std::is_empty>()
+                   or not type.template satisfies<std::is_trivial>();
+        });
+    }
+
     template<usize TIndex, typename... TTypes>
-        requires(mpl::List<TTypes...>{}.any_of(
-            [](mpl::MetaType auto type) { return not type.template satisfies<std::is_empty>(); }))
+        requires(disable_ebo(mpl::List<TTypes...>{}))
     union VariantUnion;
 
     template<typename... TTypes>
@@ -114,16 +127,16 @@ namespace hyperion::enum_::detail {
         static constexpr auto list = mpl::List<TTypes...>{};
         static constexpr auto index_type = calcualte_index_type(list);
         using size_type = typename decltype(index_type.self())::type;
-        static constexpr auto SIZE = list.size();
+        static constexpr auto size = list.size();
 
         auto variant(mpl::MetaValue auto index)
-            requires(index < SIZE)
+            requires(index < size)
         {
             return mpl::decltype_<VariantUnion<index, TTypes...>>();
         }
 
         auto next_variant(mpl::MetaValue auto index) {
-            if constexpr(index + 1 < SIZE) {
+            if constexpr(index + 1 < size) {
                 return variant(index + 1_value);
             }
             else {
@@ -142,8 +155,7 @@ namespace hyperion::enum_::detail {
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes...>{}.all_of(
-            [](mpl::MetaType auto type) { return type.template satisfies<std::is_empty>(); }))
+        requires(enable_ebo(mpl::List<TTypes...>{}))
     struct VariantEBO : TTypes... {
         using meta_info = MetaInfo<TTypes...>;
         static constexpr auto list = meta_info::list;
@@ -189,9 +201,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType>
         requires(mpl::decltype_<TType>().is_trivially_destructible())
-                and (mpl::List<TType>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType>{}))
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
@@ -241,9 +251,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType>
         requires(not mpl::decltype_<TType>().is_trivially_destructible())
-                and (mpl::List<TType>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType>{}))
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
@@ -286,9 +294,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType1, typename TType2>
         requires(mpl::List<TType1, TType2>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2>{}))
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
@@ -358,9 +364,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType1, typename TType2>
         requires(not mpl::List<TType1, TType2>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2>{}))
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
@@ -431,9 +435,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3>
         requires(mpl::List<TType1, TType2, TType3>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
@@ -517,9 +519,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3>
         requires(not mpl::List<TType1, TType2, TType3>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
@@ -604,10 +604,7 @@ namespace hyperion::enum_::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3, typename TType4>
         requires(mpl::List<TType1, TType2, TType3, TType4>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3, TType4>{}.any_of(
-                    [](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
@@ -706,10 +703,7 @@ namespace hyperion::enum_::detail {
     template<usize TIndex, typename TType1, typename TType2, typename TType3, typename TType4>
         requires(not mpl::List<TType1, TType2, TType3, TType4>{}.all_of(
                     mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3, TType4>{}.any_of(
-                    [](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
@@ -814,10 +808,7 @@ namespace hyperion::enum_::detail {
              typename TType5>
         requires(mpl::List<TType1, TType2, TType3, TType4, TType5>{}.all_of(
                     mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3, TType4, TType5>{}.any_of(
-                    [](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
@@ -935,10 +926,7 @@ namespace hyperion::enum_::detail {
              typename TType5>
         requires(not mpl::List<TType1, TType2, TType3, TType4, TType5>{}.all_of(
                     mpl::trivially_destructible))
-                and (mpl::List<TType1, TType2, TType3, TType4, TType5>{}.any_of(
-                    [](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
@@ -1052,9 +1040,7 @@ namespace hyperion::enum_::detail {
     template<usize TIndex, typename... TTypes>
         requires(mpl::List<TTypes...>{}.size() > variant_num_unrolled_instantiations)
                 and (mpl::List<TTypes...>{}.all_of(mpl::trivially_destructible))
-                and (mpl::List<TTypes...>{}.any_of([](mpl::MetaType auto type) {
-                        return not type.template satisfies<std::is_empty>();
-                    }))
+                and (disable_ebo(mpl::List<TTypes...>{}))
     union VariantUnion<TIndex, TTypes...> {
       public:
         using meta_info = MetaInfo<TTypes...>;
@@ -1121,6 +1107,94 @@ namespace hyperion::enum_::detail {
             else {
                 return std::move(m_next).get(_index);
             }
+        }
+    };
+
+    template<typename TType>
+    concept BaseStorage = requires(mpl::MetaValue auto index, TType value) {
+        {
+            value.storage()
+        } -> std::convertible_to<const TType&>;
+        requires value.get(index);
+    };
+
+    struct GetMixin {
+        static constexpr decltype(auto) get(BaseStorage auto&& self, mpl::MetaValue auto index) {
+            return std::forward<decltype(self)>(self).get(index);
+        }
+    };
+
+    template<typename... TTypes>
+    struct VariantStorageBase;
+
+    template<typename... TTypes>
+        requires(enable_ebo(mpl::List<TTypes...>{}))
+    struct VariantStorageBase<TTypes...> : VariantEBO<TTypes...>,
+                                           GetMixin {
+        using impl = VariantEBO<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::SIZE;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+
+        size_type m_index = invalid_index;
+
+        constexpr auto set_index([[maybe_unused]] size_type index) noexcept -> void {
+            m_index = index;
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return m_index;
+        }
+
+        constexpr decltype(auto) storage() & noexcept {
+            return *this;
+        }
+        constexpr decltype(auto) storage() const& noexcept {
+            return *this;
+        }
+        constexpr decltype(auto) storage() && noexcept {
+            return std::move(*this);
+        }
+        constexpr decltype(auto) storage() const&& noexcept {
+            return std::move(*this);
+        }
+    };
+
+    template<typename... TTypes>
+        requires(disable_ebo(mpl::List<TTypes...>{}))
+    struct VariantStorageBase<TTypes...> : GetMixin {
+        using impl = VariantEBO<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::SIZE;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+        using _union = VariantUnion<0, TTypes...>;
+
+        _union m_union;
+        size_type m_index = invalid_index;
+
+        constexpr auto set_index([[maybe_unused]] size_type index) noexcept -> void {
+            m_index = index;
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return m_index;
+        }
+
+        constexpr decltype(auto) storage() & noexcept {
+            return m_union;
+        }
+        constexpr decltype(auto) storage() const& noexcept {
+            return m_union;
+        }
+        constexpr decltype(auto) storage() && noexcept {
+            return std::move(*this).m_union;
+        }
+        constexpr decltype(auto) storage() const&& noexcept {
+            return std::move(*this).m_union;
         }
     };
 } // namespace hyperion::enum_::detail
