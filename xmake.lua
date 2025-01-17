@@ -30,6 +30,14 @@ add_requires("hyperion_mpl", {
         hyperion_enable_tracy = has_config("hyperion_enable_tracy"),
     }
 })
+add_requires("hyperion_assert", {
+    system = false,
+    external = true,
+    configs = {
+        languages = "cxx20",
+        hyperion_enable_tracy = has_config("hyperion_enable_tracy"),
+    }
+})
 add_requires("boost_ut", {
     system = false,
     external = true,

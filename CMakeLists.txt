@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(hyperion_std LANGUAGES CXX)
+project(hyperion_std LANGUAGES CXX VERSION 0.1.0)
 
 include(CTest)
 
@@ -24,14 +24,21 @@ endif()
 if(${HYPERION_USE_FETCH_CONTENT})
     FetchContent_Declare(hyperion_platform
         GIT_REPOSITORY "https://github.com/braxtons12/hyperion_platform"
-        GIT_TAG "v0.4.1"
+        GIT_TAG "v0.5.3"
         SYSTEM
         )
     FetchContent_MakeAvailable(hyperion_platform)
 
     FetchContent_Declare(hyperion_mpl
         GIT_REPOSITORY "https://github.com/braxtons12/hyperion_mpl"
-        GIT_TAG "v0.8.2"
+        GIT_TAG "v0.8.6"
+        SYSTEM
+        )
+    FetchContent_MakeAvailable(hyperion_mpl)
+
+    FetchContent_Declare(hyperion_assert
+        GIT_REPOSITORY "https://github.com/braxtons12/hyperion_assert"
+        GIT_TAG "v0.1.0"
         SYSTEM
         )
     FetchContent_MakeAvailable(hyperion_mpl)
@@ -145,7 +152,7 @@ set(HYPERION_STD_DOCS_FILES
 add_custom_command(
     OUTPUT ${HYPERION_STD_DOXYGEN_HTML}
     DEPENDS ${HYPERION_STD_HEADERS} ${DOCS_FILES}
-    COMMAND sphix-build -M html . _build
+    COMMAND sphinx-build -M html . _build
     WORKING_DIRECTORY ${HYPERION_STD_DOCS_DIR}
     MAIN_DEPENDENCY
     COMMENT "Generating documentation with doxygen, sphinx, and breathe"
