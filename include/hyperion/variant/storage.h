@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Storage implementation for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-01-17
+/// @date 2025-01-18
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>

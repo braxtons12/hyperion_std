@@ -3,7 +3,7 @@
 /// @brief Metaprogramming function used to call a function that requires a compile-time
 // index with a runtime value.
 /// @version 0.1
-/// @date 2025-01-17
+/// @date 2025-01-18
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>

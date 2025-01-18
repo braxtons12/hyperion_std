@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Equivalent to Rust's `None` and C++'s `std::nullopt` and `std::monostate`.
 /// @version 0.1
-/// @date 2024-08-13
+/// @date 2025-01-18
 ///
 /// MIT License
 /// @copyright Copyright (c) 2024 Braxton Salyer <braxtonsalyer@gmail.com>
