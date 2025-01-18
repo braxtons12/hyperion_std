@@ -1116,8 +1116,8 @@ namespace hyperion::variant::detail {
     }
 
     static constexpr auto get(BaseStorage auto&& self, mpl::MetaValue auto _index) ->
-        typename decltype(make_qualified_like(DECLTYPE(self.get(_index)){},
-                                              DECLTYPE(self){}))::type {
+        typename decltype(make_qualified_like(mpl::decltype_(decltype(self){}.get(decltype(_index){})),
+                                              mpl::decltype_(decltype(self){})))::type {
         return std::forward<decltype(self)>(self).get(_index);
     }
 
