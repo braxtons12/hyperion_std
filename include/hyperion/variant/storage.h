@@ -120,7 +120,6 @@ namespace hyperion::variant::detail {
     }
 
     template<usize TIndex, typename... TTypes>
-        requires(disable_ebo(mpl::List<TTypes...>{}))
     union VariantUnion;
 
     template<typename... TTypes>
@@ -1012,7 +1011,7 @@ namespace hyperion::variant::detail {
     };
 
     template<usize TIndex, typename... TTypes>
-        requires(mpl::List<TTypes...>{}.size() > variant_num_unrolled_instantiations)
+        requires(sizeof...(TTypes) > variant_num_unrolled_instantiations)
                 and (mpl::List<TTypes...>{}
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible))
@@ -1026,8 +1025,7 @@ namespace hyperion::variant::detail {
 
       private:
         using t_one = typename decltype(list.at(0_value))::type;
-        constexpr auto next = info.next_variant(index);
-        using t_next = typename decltype(next)::type;
+        using t_next = typename decltype(info.next_variant(index))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -1083,11 +1081,11 @@ namespace hyperion::variant::detail {
     };
 
     template<typename TType>
-    concept BaseStorage = requires(mpl::MetaValue auto _index, TType value) {
+    concept BaseStorage = requires(TType value) {
         {
             value.storage()
         } -> std::convertible_to<const TType&>;
-        requires value.get(_index);
+        requires value.get(mpl::Value<0>{});
     };
 
     static constexpr auto make_ref_qualified_like([[maybe_unused]] mpl::MetaType auto current,
@@ -1393,10 +1391,11 @@ namespace hyperion::variant::detail {
         template<typename TArg>
         constexpr auto
         assign(mpl::MetaValue auto _index,
-               TArg&& arg) noexcept(list.at(_index).satisfies(nothrow_assignable<TArg>)) -> void
-            requires(list.at(_index).satisfies(assignable<TArg>))
+               TArg&& arg) noexcept(list.at(decltype(_index){}).satisfies(nothrow_assignable<TArg>))
+            -> void
+            requires(list.at(decltype(_index){}).satisfies(assignable<TArg>))
         {
-            static constexpr auto new_variant = list.at(decltype(_index){});
+            constexpr auto new_variant = list.at(decltype(_index){});
 
             if constexpr(list.at(0_value).is_lvalue_reference()
                          and list == mpl::List<typename decltype(list.at(0_value))::type, None>{})
@@ -1622,8 +1621,8 @@ namespace hyperion::variant::detail {
     struct VariantCopyAssignment;
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).none_of(mpl::copy_assignable))
-    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).none_of(mpl::copy_assignable))
+    struct VariantCopyAssignment<TTypes...> : public VariantCopyConstructor<TTypes...> {
         using storage = typename VariantCopyConstructor<TTypes...>::storage;
         using base = VariantCopyConstructor<TTypes...>;
         using base::base;
@@ -1637,8 +1636,9 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::trivially_copy_assignable))
-    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+        requires(
+            mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::trivially_copy_assignable))
+    struct VariantCopyAssignment<TTypes...> : public VariantCopyConstructor<TTypes...> {
         using storage = typename VariantCopyConstructor<TTypes...>::storage;
         using base = VariantCopyConstructor<TTypes...>;
         using base::base;
@@ -1652,11 +1652,11 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::copy_assignable)
-                 and not mpl::List<TTypes>{}
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::copy_assignable)
+                 and not mpl::List<TTypes...>{}
                              .apply(reference_to_ptr)
                              .all_of(mpl::trivially_copy_assignable))
-    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+    struct VariantCopyAssignment<TTypes...> : public VariantCopyConstructor<TTypes...> {
         using storage = typename VariantCopyConstructor<TTypes...>::storage;
         using base = VariantCopyConstructor<TTypes...>;
         using base::base;
@@ -1689,8 +1689,8 @@ namespace hyperion::variant::detail {
     struct VariantMoveConstructor;
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).none_of(mpl::move_constructible))
-    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).none_of(mpl::move_constructible))
+    struct VariantMoveConstructor<TTypes...> : public VariantCopyAssignment<TTypes...> {
         using storage = typename VariantCopyAssignment<TTypes...>::storage;
         using base = VariantCopyAssignment<TTypes...>;
         using base::base;
@@ -1704,9 +1704,10 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(
-            mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::trivially_move_constructible))
-    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+        requires(mpl::List<TTypes...>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_move_constructible))
+    struct VariantMoveConstructor<TTypes...> : public VariantCopyAssignment<TTypes...> {
         using storage = typename VariantCopyAssignment<TTypes...>::storage;
         using base = VariantCopyAssignment<TTypes...>;
         using base::base;
@@ -1720,11 +1721,11 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::move_constructible)
-                 and not mpl::List<TTypes>{}
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::move_constructible)
+                 and not mpl::List<TTypes...>{}
                              .apply(reference_to_ptr)
                              .all_of(mpl::trivially_move_constructible))
-    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+    struct VariantMoveConstructor<TTypes...> : public VariantCopyAssignment<TTypes...> {
         using storage = typename VariantCopyAssignment<TTypes...>::storage;
         using base = VariantCopyAssignment<TTypes...>;
         using base::base;
@@ -1755,7 +1756,7 @@ namespace hyperion::variant::detail {
 
     template<typename... TTypes>
         requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).none_of(mpl::move_assignable))
-    struct VariantMoveAssignment : public VariantMoveConstructor<TTypes...> {
+    struct VariantMoveAssignment<TTypes...> : public VariantMoveConstructor<TTypes...> {
         using storage = typename VariantMoveConstructor<TTypes...>::storage;
         using base = VariantMoveConstructor<TTypes...>;
         using base::base;
@@ -1771,7 +1772,7 @@ namespace hyperion::variant::detail {
     template<typename... TTypes>
         requires(
             mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::trivially_move_assignable))
-    struct VariantMoveAssignment : public VariantMoveConstructor<TTypes...> {
+    struct VariantMoveAssignment<TTypes...> : public VariantMoveConstructor<TTypes...> {
         using storage = typename VariantMoveConstructor<TTypes...>::storage;
         using base = VariantMoveConstructor<TTypes...>;
         using base::base;
@@ -1789,7 +1790,7 @@ namespace hyperion::variant::detail {
                  and not mpl::List<TTypes...>{}
                              .apply(reference_to_ptr)
                              .all_of(mpl::trivially_move_assignable))
-    struct VariantMoveAssignment : public VariantMoveConstructor<TTypes...> {
+    struct VariantMoveAssignment<TTypes...> : public VariantMoveConstructor<TTypes...> {
         using storage = typename VariantMoveConstructor<TTypes...>::storage;
         using base = VariantMoveConstructor<TTypes...>;
         using base::base;

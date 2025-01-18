@@ -53,11 +53,9 @@ struct std::hash<hyperion::None> {
     auto operator()(const hyperion::None&) const noexcept {
         using hyperion::operator""_usize;
         // slightly different value than the "magic value" used for `std::monostate`
-        constexpr hyperion::usize hash = 0xFFFFFFFFFFFFE18F_usize;
-        return hash;
+        constexpr hyperion::usize _hash = 0xFFFFFFFFFFFFE18F_usize;
+        return _hash;
     }
 };
 
 #endif // HYPERION_STD_NONE_H
-
-

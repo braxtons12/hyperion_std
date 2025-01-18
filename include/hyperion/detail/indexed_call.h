@@ -57,7 +57,7 @@ namespace hyperion::detail {
         }
 
         template<typename TFunc>
-        static constexpr auto call(std::size_t desired,
+        static constexpr auto call([[maybe_unused]] std::size_t desired,
                                    mpl::MetaValue auto bound,
                                    mpl::MetaValue auto current,
                                    TFunc&& func)

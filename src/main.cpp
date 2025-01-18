@@ -26,6 +26,7 @@
 /// SOFTWARE.
 
 #include <hyperion/platform/types.h>
+#include <hyperion/variant.h>
 
 using namespace hyperion; // NOLINT(google-build-using-namespace)
                           
