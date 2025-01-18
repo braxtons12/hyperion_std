@@ -51,7 +51,7 @@ jobs:
       - name: Replace clang-tidy
         run: |
           if [[ "$(realpath --canonicalize-existing /usr/bin/clang-tidy-${{matrix.version}})" \
-              != "$(realpath --canonlicalize-existing /usr/bin/clang-tidy)" \
+              != "$(realpath --canonicalize-existing /usr/bin/clang-tidy)" \
           ]]; then
             sudo cp /usr/bin/clang-tidy-${{matrix.version}} /usr/bin/clang-tidy -f
           fi
