@@ -1486,10 +1486,10 @@ namespace hyperion::variant::detail {
     struct VariantCopyConstructor;
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes...>{}.none_of(mpl::copy_constructible))
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).none_of(mpl::copy_constructible))
     struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
         using storage = typename VariantDestructor<TTypes...>::storage;
-        using base = storage;
+        using base = VariantDestructor<TTypes...>;
         using base::base;
         using base::operator=;
 
@@ -1501,10 +1501,12 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes...>{}.all_of(mpl::trivially_copy_constructible))
+        requires(mpl::List<TTypes...>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_copy_constructible))
     struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
         using storage = typename VariantDestructor<TTypes...>::storage;
-        using base = storage;
+        using base = VariantDestructor<TTypes...>;
         using base::base;
         using base::operator=;
 
@@ -1516,11 +1518,11 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(mpl::List<TTypes...>{}.all_of(mpl::copy_constructible))
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::copy_constructible))
                 and (not mpl::List<TTypes...>{}.all_of(mpl::trivially_copy_constructible))
     struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
         using storage = typename VariantDestructor<TTypes...>::storage;
-        using base = storage;
+        using base = VariantDestructor<TTypes...>;
         using base::base;
         using base::operator=;
 
@@ -1536,10 +1538,77 @@ namespace hyperion::variant::detail {
                     var.index(),
                     mpl::Value<storage::size>{},
                     [this, &var](mpl::MetaValue auto index) noexcept(
-                        storage::list.all_of(mpl::noexcept_copy_constructible)) {
+                        storage::list.all_of(mpl::noexcept_copy_constructible)) -> void {
                         this->construct(index, var.get(index));
                     });
             }
+        }
+    };
+
+    template<typename... TTypes>
+    struct VariantCopyAssignment;
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).none_of(mpl::copy_assignable))
+    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+        using storage = typename VariantCopyConstructor<TTypes...>::storage;
+        using base = VariantCopyConstructor<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyAssignment() = default;
+        VariantCopyAssignment(const VariantCopyAssignment&) = default;
+        VariantCopyAssignment(VariantCopyAssignment&&) noexcept = default;
+        auto operator=(const VariantCopyAssignment&) -> VariantCopyAssignment& = delete;
+        auto operator=(VariantCopyAssignment&&) noexcept -> VariantCopyAssignment& = default;
+    };
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::trivially_copy_assignable))
+    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+        using storage = typename VariantCopyConstructor<TTypes...>::storage;
+        using base = VariantCopyConstructor<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyAssignment() = default;
+        VariantCopyAssignment(const VariantCopyAssignment&) = default;
+        VariantCopyAssignment(VariantCopyAssignment&&) noexcept = default;
+        auto operator=(const VariantCopyAssignment&) -> VariantCopyAssignment& = default;
+        auto operator=(VariantCopyAssignment&&) noexcept -> VariantCopyAssignment& = default;
+    };
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::copy_assignable)
+                 and not mpl::List<TTypes>{}
+                             .apply(reference_to_ptr)
+                             .all_of(mpl::trivially_copy_assignable))
+    struct VariantCopyAssignment : public VariantCopyConstructor<TTypes...> {
+        using storage = typename VariantCopyConstructor<TTypes...>::storage;
+        using base = VariantCopyConstructor<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyAssignment() = default;
+        VariantCopyAssignment(const VariantCopyAssignment&) = default;
+        VariantCopyAssignment(VariantCopyAssignment&&) noexcept = default;
+        auto operator=(VariantCopyAssignment&&) noexcept -> VariantCopyAssignment& = default;
+
+        auto operator=(const VariantCopyAssignment& var) noexcept(
+            storage::list.all_of(mpl::noexcept_copy_assignable)) -> VariantCopyAssignment& {
+            if(this == &var) {
+                return *this;
+            }
+
+            hyperion::detail::indexed_call(
+                var.index(),
+                mpl::Value<storage::size>{},
+                [this, &var](mpl::MetaValue auto index) noexcept(
+                    storage::list.all_of(mpl::noexcept_copy_assignable)) -> void {
+                    this->assign(index, var.get(index));
+                });
+
+            return *this;
         }
     };
 
