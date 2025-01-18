@@ -45,6 +45,7 @@ local function _set_compile_options(target)
         target:add("cxflags", "/EHsc", { public = true })
         target:add("cxflags", "/MP", { public = false })
         target:add("cxflags", "/sdl", { public = false })
+        target:add("cxflags", "/utf-8", { public = false })
     elseif target:has_tool("cxx", "clang", "clang++") then
         target:add("cxflags", "-fsized-deallocation", { public = true })
     end
