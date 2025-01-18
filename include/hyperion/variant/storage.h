@@ -91,6 +91,7 @@ namespace hyperion::variant::detail {
     }
 
     static constexpr auto ptr_to_reference(mpl::MetaType auto _type, auto&& ptr) {
+    static constexpr auto ptr_to_reference([[maybe_unused]] mpl::MetaType auto _type, auto&& ptr) {
         using type = DECLTYPE(ptr);
         using actual = decltype(_type);
         if constexpr(type{}
@@ -109,6 +110,8 @@ namespace hyperion::variant::detail {
         return list.all_of([](mpl::MetaType auto type) {
             return type.template satisfies<std::is_empty>()
                    and type.template satisfies<std::is_trivial>();
+            return type.apply(reference_to_ptr).template satisfies<std::is_empty>()
+                   and type.apply(reference_to_ptr).template satisfies<std::is_trivial>();
         });
     }
 
@@ -116,6 +119,8 @@ namespace hyperion::variant::detail {
         return list.any_of([](mpl::MetaType auto type) {
             return not type.template satisfies<std::is_empty>()
                    or not type.template satisfies<std::is_trivial>();
+            return not type.apply(reference_to_ptr).template satisfies<std::is_empty>()
+                   or not type.apply(reference_to_ptr).template satisfies<std::is_trivial>();
         });
     }
 
@@ -128,12 +133,16 @@ namespace hyperion::variant::detail {
         static constexpr auto list = mpl::List<TTypes...>{};
         static constexpr auto _index_type = calcualte_index_type(list);
         using size_type = typename decltype(_index_type.self())::type;
+        static constexpr auto list = mpl::List<TTypes...>{}.apply(reference_to_ptr);
+        static constexpr auto index_type = calcualte_index_type(list);
+        using size_type = typename decltype(index_type.self())::type;
         static constexpr auto size = list.size();
 
         auto variant(mpl::MetaValue auto _index)
             requires(_index < size)
         {
             return mpl::decltype_<VariantUnion<index, TTypes...>>();
+            return mpl::decltype_<VariantUnion<decltype(_index){}, TTypes...>>();
         }
 
         auto next_variant(mpl::MetaValue auto _index) {
@@ -202,11 +211,13 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType>
         requires(mpl::decltype_<TType>().is_trivially_destructible())
+        requires(mpl::decltype_<TType>().apply(reference_to_ptr).is_trivially_destructible())
                 and (disable_ebo(mpl::List<TType>{}))
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -215,6 +226,7 @@ namespace hyperion::variant::detail {
         }
 
         static constexpr auto one = ref_to_ptr(0_value);
+        static constexpr auto one = list.at(0_value);
         using t_one = typename decltype(one.self())::type;
 
       public:
@@ -252,11 +264,13 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType>
         requires(not mpl::decltype_<TType>().is_trivially_destructible())
+        requires(not mpl::decltype_<TType>().apply(reference_to_ptr).is_trivially_destructible())
                 and (disable_ebo(mpl::List<TType>{}))
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -265,6 +279,7 @@ namespace hyperion::variant::detail {
         }
 
         static constexpr auto one = ref_to_ptr(0_value);
+        static constexpr auto one = list.at(0_value);
         using t_one = typename decltype(one.self())::type;
 
       public:
@@ -295,11 +310,15 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType1, typename TType2>
         requires(mpl::List<TType1, TType2>{}.all_of(mpl::trivially_destructible))
+        requires(mpl::List<TType1, TType2>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2>{}))
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -309,6 +328,8 @@ namespace hyperion::variant::detail {
 
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -365,11 +386,15 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType1, typename TType2>
         requires(not mpl::List<TType1, TType2>{}.all_of(mpl::trivially_destructible))
+        requires(not mpl::List<TType1, TType2>{}
+                         .apply(reference_to_ptr)
+                         .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2>{}))
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -379,6 +404,8 @@ namespace hyperion::variant::detail {
 
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -436,11 +463,15 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3>
         requires(mpl::List<TType1, TType2, TType3>{}.all_of(mpl::trivially_destructible))
+        requires(mpl::List<TType1, TType2, TType3>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -451,6 +482,9 @@ namespace hyperion::variant::detail {
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -520,11 +554,15 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3>
         requires(not mpl::List<TType1, TType2, TType3>{}.all_of(mpl::trivially_destructible))
+        requires(not mpl::List<TType1, TType2, TType3>{}
+                         .apply(reference_to_ptr)
+                         .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -535,6 +573,9 @@ namespace hyperion::variant::detail {
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -605,11 +646,15 @@ namespace hyperion::variant::detail {
 
     template<usize TIndex, typename TType1, typename TType2, typename TType3, typename TType4>
         requires(mpl::List<TType1, TType2, TType3, TType4>{}.all_of(mpl::trivially_destructible))
+        requires(mpl::List<TType1, TType2, TType3, TType4>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -621,6 +666,10 @@ namespace hyperion::variant::detail {
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
         using t_four = typename decltype(ref_to_ptr(3_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
+        using t_four = typename decltype(list.at(3_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -704,11 +753,15 @@ namespace hyperion::variant::detail {
     template<usize TIndex, typename TType1, typename TType2, typename TType3, typename TType4>
         requires(not mpl::List<TType1, TType2, TType3, TType4>{}.all_of(
                     mpl::trivially_destructible))
+        requires(not mpl::List<TType1, TType2, TType3, TType4>{}
+                         .apply(reference_to_ptr)
+                         .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -720,6 +773,10 @@ namespace hyperion::variant::detail {
         using t_two = typename decltype(ref_to_ptr(1_value))::type;
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
         using t_four = typename decltype(ref_to_ptr(3_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
+        using t_four = typename decltype(list.at(3_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -809,11 +866,15 @@ namespace hyperion::variant::detail {
              typename TType5>
         requires(mpl::List<TType1, TType2, TType3, TType4, TType5>{}.all_of(
                     mpl::trivially_destructible))
+        requires(mpl::List<TType1, TType2, TType3, TType4, TType5>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -826,6 +887,11 @@ namespace hyperion::variant::detail {
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
         using t_four = typename decltype(ref_to_ptr(3_value))::type;
         using t_five = typename decltype(ref_to_ptr(4_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
+        using t_four = typename decltype(list.at(3_value))::type;
+        using t_five = typename decltype(list.at(4_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -927,11 +993,15 @@ namespace hyperion::variant::detail {
              typename TType5>
         requires(not mpl::List<TType1, TType2, TType3, TType4, TType5>{}.all_of(
                     mpl::trivially_destructible))
+        requires(not mpl::List<TType1, TType2, TType3, TType4, TType5>{}
+                         .apply(reference_to_ptr)
+                         .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -944,6 +1014,11 @@ namespace hyperion::variant::detail {
         using t_three = typename decltype(ref_to_ptr(2_value))::type;
         using t_four = typename decltype(ref_to_ptr(3_value))::type;
         using t_five = typename decltype(ref_to_ptr(4_value))::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        using t_two = typename decltype(list.at(1_value))::type;
+        using t_three = typename decltype(list.at(2_value))::type;
+        using t_four = typename decltype(list.at(3_value))::type;
+        using t_five = typename decltype(list.at(4_value))::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -1041,12 +1116,16 @@ namespace hyperion::variant::detail {
     template<usize TIndex, typename... TTypes>
         requires(mpl::List<TTypes...>{}.size() > variant_num_unrolled_instantiations)
                 and (mpl::List<TTypes...>{}.all_of(mpl::trivially_destructible))
+                and (mpl::List<TTypes...>{}
+                         .apply(reference_to_ptr)
+                         .all_of(mpl::trivially_destructible))
                 and (disable_ebo(mpl::List<TTypes...>{}))
     union VariantUnion<TIndex, TTypes...> {
       public:
         using meta_info = MetaInfo<TTypes...>;
         static constexpr auto info = meta_info{};
         static constexpr auto _index = mpl::Value<TIndex>{};
+        static constexpr auto index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -1057,6 +1136,9 @@ namespace hyperion::variant::detail {
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
         constexpr auto next = info.next_variant(_index);
         using t_next = typename std::remove_cvref_t<decltype(next)>::type;
+        using t_one = typename decltype(list.at(0_value))::type;
+        constexpr auto next = info.next_variant(index);
+        using t_next = typename decltype(next)::type;
 
       public:
         constexpr VariantUnion() noexcept = default;
@@ -1070,6 +1152,7 @@ namespace hyperion::variant::detail {
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
             constexpr auto type = list.at(_index);
             if constexpr(_index == _index) {
+            if constexpr(_index == index) {
                 return ptr_to_reference(type, m_self);
             }
             else {
@@ -1081,6 +1164,7 @@ namespace hyperion::variant::detail {
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
             constexpr auto type = list.at(_index);
             if constexpr(_index == _index) {
+            if constexpr(_index == index) {
                 return ptr_to_reference(type, m_self);
             }
             else {
@@ -1092,6 +1176,7 @@ namespace hyperion::variant::detail {
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
             constexpr auto type = list.at(_index);
             if constexpr(_index == _index) {
+            if constexpr(_index == index) {
                 return ptr_to_reference(type, std::move(m_self));
             }
             else {
@@ -1103,6 +1188,7 @@ namespace hyperion::variant::detail {
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
             constexpr auto type = list.at(_index);
             if constexpr(_index == _index) {
+            if constexpr(_index == index) {
                 return ptr_to_reference(type, std::move(m_self));
             }
             else {
@@ -1121,6 +1207,8 @@ namespace hyperion::variant::detail {
 
     static constexpr auto
     make_ref_qualified_like(mpl::MetaType auto current, mpl::MetaType auto desired) {
+    static constexpr auto make_ref_qualified_like([[maybe_unused]] mpl::MetaType auto current,
+                                                  [[maybe_unused]] mpl::MetaType auto desired) {
         using res = decltype(desired);
         using cur = decltype(current);
         if constexpr(res{}.is_lvalue_reference()) {
@@ -1136,6 +1224,8 @@ namespace hyperion::variant::detail {
 
     static constexpr auto
     make_qualified_like(mpl::MetaType auto current, mpl::MetaType auto desired) {
+    static constexpr auto make_qualified_like([[maybe_unused]] mpl::MetaType auto current,
+                                              [[maybe_unused]] mpl::MetaType auto desired) {
         using res = decltype(desired);
         using cur = decltype(current);
         if constexpr(res{}.is_const()) {
@@ -1341,6 +1431,8 @@ namespace hyperion::variant::detail {
             else {
                 constexpr auto type = list.at(decltype(_index){});
                 return type.is_destructible() and not type.is_trivially_destructible();
+                return type.apply(reference_to_ptr).is_destructible()
+                       and not type.apply(reference_to_ptr).is_trivially_destructible();
             }
         }
 
@@ -1409,11 +1501,14 @@ namespace hyperion::variant::detail {
 
         template<typename TArg>
         static constexpr auto nothrow_assignable = [](mpl::MetaType auto type) -> bool {
+        static constexpr auto nothrow_assignable
+            = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
             return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
                                                 TArg>;
         };
         template<typename TArg>
         static constexpr auto assignable = [](mpl::MetaType auto type) -> bool {
+        static constexpr auto assignable = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
             return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type, TArg>;
         };
 
@@ -1427,10 +1522,15 @@ namespace hyperion::variant::detail {
 
             if constexpr(list.at(0_value).is_lvalue_reference()
                          and list == mpl::List<typename decltype(list.at(0_value))::type, None>{}) {
+                         and list == mpl::List<typename decltype(list.at(0_value))::type, None>{})
+            {
                 if constexpr(decltype(_index){} == 0_value) {
                     if (this->get(0_value) == nullptr) {
+                    if(this->get(0_value) == nullptr) {
                         construct(0_value, std::forward<TArg>(arg));
                     } else {
+                    }
+                    else {
                         this->get(0_value) = std::addressof(std::forward<TArg>(arg));
                     }
                 }
@@ -1467,6 +1567,107 @@ namespace hyperion::variant::detail {
             }
         }
     };
+
+    template<typename... TTypes>
+    struct VariantDestructor;
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::trivially_destructible))
+    struct VariantDestructor<TTypes...> : public VariantStorage<TTypes...> {
+        using storage = VariantStorage<TTypes...>;
+        using storage::storage;
+        using storage::operator=;
+
+        VariantDestructor() = default;
+        VariantDestructor(const VariantDestructor&) = default;
+        VariantDestructor(VariantDestructor&&) noexcept = default;
+        auto operator=(const VariantDestructor&) -> VariantDestructor& = default;
+        auto operator=(VariantDestructor&&) noexcept -> VariantDestructor& = default;
+
+        ~VariantDestructor() noexcept(storage::list.all_of(mpl::noexcept_destructible)) = default;
+    };
+
+    template<typename... TTypes>
+        requires(
+            not mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::trivially_destructible))
+    struct VariantDestructor<TTypes...> : public VariantStorage<TTypes...> {
+        using storage = VariantStorage<TTypes...>;
+        using base = storage;
+        using base::base;
+        using base::operator=;
+
+        VariantDestructor() = default;
+        VariantDestructor(const VariantDestructor&) = default;
+        VariantDestructor(VariantDestructor&&) noexcept = default;
+        auto operator=(const VariantDestructor&) -> VariantDestructor& = default;
+        auto operator=(VariantDestructor&&) noexcept -> VariantDestructor& = default;
+
+        ~VariantDestructor() noexcept(storage::list.all_of(mpl::noexcept_destructible)) {
+            this->destruct(this->index());
+        }
+    };
+
+    template<typename... TTypes>
+    struct VariantCopyConstructor;
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes...>{}.none_of(mpl::copy_constructible))
+    struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
+        using storage = typename VariantDestructor<TTypes...>::storage;
+        using base = storage;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyConstructor() = default;
+        VariantCopyConstructor(const VariantCopyConstructor&) = delete;
+        VariantCopyConstructor(VariantCopyConstructor&&) noexcept = default;
+        auto operator=(const VariantCopyConstructor&) -> VariantCopyConstructor& = default;
+        auto operator=(VariantCopyConstructor&&) noexcept -> VariantCopyConstructor& = default;
+    };
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes...>{}.all_of(mpl::trivially_copy_constructible))
+    struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
+        using storage = typename VariantDestructor<TTypes...>::storage;
+        using base = storage;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyConstructor() = default;
+        VariantCopyConstructor(const VariantCopyConstructor&) noexcept = default;
+        VariantCopyConstructor(VariantCopyConstructor&&) noexcept = default;
+        auto operator=(const VariantCopyConstructor&) -> VariantCopyConstructor& = default;
+        auto operator=(VariantCopyConstructor&&) noexcept -> VariantCopyConstructor& = default;
+    };
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes...>{}.all_of(mpl::copy_constructible))
+                and (not mpl::List<TTypes...>{}.all_of(mpl::trivially_copy_constructible))
+    struct VariantCopyConstructor<TTypes...> : public VariantDestructor<TTypes...> {
+        using storage = typename VariantDestructor<TTypes...>::storage;
+        using base = storage;
+        using base::base;
+        using base::operator=;
+
+        VariantCopyConstructor() = default;
+        VariantCopyConstructor(VariantCopyConstructor&&) noexcept = default;
+        auto operator=(const VariantCopyConstructor&) -> VariantCopyConstructor& = default;
+        auto operator=(VariantCopyConstructor&&) noexcept -> VariantCopyConstructor& = default;
+
+        VariantCopyConstructor(const VariantCopyConstructor& var) noexcept(
+            storage::list.all_of(mpl::noexcept_copy_constructible)) {
+            if(var.index() != storage::invalid_index) {
+                hyperion::detail::indexed_call(
+                    var.index(),
+                    mpl::Value<storage::size>{},
+                    [this, &var](mpl::MetaValue auto index) noexcept(
+                        storage::list.all_of(mpl::noexcept_copy_constructible)) {
+                        this->construct(index, var.get(index));
+                    });
+            }
+        }
+    };
+
 } // namespace hyperion::variant::detail
 
 #undef DECLTYPE
