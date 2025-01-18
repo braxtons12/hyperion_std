@@ -41,7 +41,7 @@ if(${HYPERION_USE_FETCH_CONTENT})
         GIT_TAG "v0.1.0"
         SYSTEM
         )
-    FetchContent_MakeAvailable(hyperion_mpl)
+    FetchContent_MakeAvailable(hyperion_assert)
 
     FetchContent_Declare(boost_ut
         GIT_REPOSITORY "https://github.com/boost-ext/ut"
@@ -64,6 +64,7 @@ if(${HYPERION_USE_FETCH_CONTENT})
     #     )
     # FetchContent_MakeAvailable(flux)
 else()
+    find_package(hyperion_assert REQUIRED)
     find_package(hyperion_platform REQUIRED)
     find_package(hyperion_mpl REQUIRED)
     find_package(ut REQUIRED)
@@ -81,6 +82,7 @@ set(HYPERION_STD_INCLUDE_PATH
     "${CMAKE_CURRENT_SOURCE_DIR}/include/hyperion"
 )
 set(HYPERION_STD_HEADERS
+    "${HYPERION_STD_INCLUDE_PATH}/detail/indexed_call.h"
     "${HYPERION_STD_INCLUDE_PATH}/variant.h"
     "${HYPERION_STD_INCLUDE_PATH}/variant/storage.h"
 )
@@ -100,6 +102,7 @@ target_sources(
 target_link_libraries(
     hyperion_std
     PUBLIC
+    hyperion::assert
     hyperion::platform
     hyperion::mpl
     fmt::fmt

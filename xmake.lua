@@ -87,7 +87,13 @@ target("hyperion_std", function()
 
     add_options("hyperion_enable_tracy", { public = true })
 
-    add_packages("hyperion_platform", "hyperion_mpl", "fmt", { public = true })
+    add_packages(
+        "hyperion_assert",
+        "hyperion_platform",
+        "hyperion_mpl",
+        "fmt",
+        { public = true }
+    )
 end)
 
 target("hyperion_std_main", function()

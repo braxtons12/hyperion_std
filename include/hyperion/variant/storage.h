@@ -2,10 +2,10 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Storage implementation for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-01-16
+/// @date 2025-01-17
 ///
 /// MIT License
-/// @copyright Copyright (c) 2024 Braxton Salyer <braxtonsalyer@gmail.com>
+/// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
 ///
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -25,9 +25,10 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-#ifndef HYPERION_STD_ENUM_STORAGE_H
-#define HYPERION_STD_ENUM_STORAGE_H
+#ifndef HYPERION_STD_VARIANT_STORAGE_H
+#define HYPERION_STD_VARIANT_STORAGE_H
 
+#include <hyperion/detail/indexed_call.h>
 #include <hyperion/mpl/concepts.h>
 #include <hyperion/mpl/list.h>
 #include <hyperion/mpl/metapredicates.h>
@@ -40,7 +41,7 @@
 
 #define DECLTYPE(x) decltype(mpl::decltype_(x))
 
-namespace hyperion::enum_::detail {
+namespace hyperion::variant::detail {
     using mpl::operator""_value;
 
     template<typename... TTypes>
@@ -125,19 +126,19 @@ namespace hyperion::enum_::detail {
     template<typename... TTypes>
     struct MetaInfo {
         static constexpr auto list = mpl::List<TTypes...>{};
-        static constexpr auto index_type = calcualte_index_type(list);
-        using size_type = typename decltype(index_type.self())::type;
+        static constexpr auto _index_type = calcualte_index_type(list);
+        using size_type = typename decltype(_index_type.self())::type;
         static constexpr auto size = list.size();
 
-        auto variant(mpl::MetaValue auto index)
-            requires(index < size)
+        auto variant(mpl::MetaValue auto _index)
+            requires(_index < size)
         {
             return mpl::decltype_<VariantUnion<index, TTypes...>>();
         }
 
-        auto next_variant(mpl::MetaValue auto index) {
-            if constexpr(index + 1 < size) {
-                return variant(index + 1_value);
+        auto next_variant(mpl::MetaValue auto _index) {
+            if constexpr(_index + 1 < size) {
+                return variant(_index + 1_value);
             }
             else {
                 return mpl::decltype_<None>();
@@ -160,35 +161,35 @@ namespace hyperion::enum_::detail {
         using meta_info = MetaInfo<TTypes...>;
         static constexpr auto list = meta_info::list;
 
-        constexpr auto get(mpl::MetaValue auto index) & noexcept ->
-            typename decltype(list.at(index).as_lvalue_reference())::type
-            requires(index < list.size())
+        constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
+            typename decltype(list.at(_index).as_lvalue_reference())::type
+            requires(_index < list.size())
         {
-            using type = typename decltype(meta_info::list.at(index).as_lvalue_reference())::type;
+            using type = typename decltype(meta_info::list.at(_index).as_lvalue_reference())::type;
             return static_cast<type>(*this);
         }
 
-        constexpr auto get(mpl::MetaValue auto index) const& noexcept ->
-            typename decltype(list.at(index).as_const().as_lvalue_reference())::type
-            requires(index < list.size())
+        constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
+            typename decltype(list.at(_index).as_const().as_lvalue_reference())::type
+            requires(_index < list.size())
         {
-            using type = typename decltype(list.at(index).as_const().as_lvalue_reference())::type;
+            using type = typename decltype(list.at(_index).as_const().as_lvalue_reference())::type;
             return static_cast<type>(*this);
         }
 
-        constexpr auto get(mpl::MetaValue auto index) && noexcept ->
-            typename decltype(list.at(index).as_rvalue_reference())::type
-            requires(index < list.size())
+        constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
+            typename decltype(list.at(_index).as_rvalue_reference())::type
+            requires(_index < list.size())
         {
-            using type = typename decltype(list.at(index).as_rvalue_reference())::type;
+            using type = typename decltype(list.at(_index).as_rvalue_reference())::type;
             return static_cast<type>(std::move(*this));
         }
 
-        constexpr auto get(mpl::MetaValue auto index) const&& noexcept ->
-            typename decltype(list.at(index).as_const().as_rvalue_reference())::type
-            requires(index < list.size())
+        constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
+            typename decltype(list.at(_index).as_const().as_rvalue_reference())::type
+            requires(_index < list.size())
         {
-            using type = typename decltype(list.at(index).as_const().as_rvalue_reference())::type;
+            using type = typename decltype(list.at(_index).as_const().as_rvalue_reference())::type;
             return static_cast<type>(std::move(*this));
         }
     };
@@ -205,7 +206,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -255,7 +256,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -298,7 +299,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -319,7 +320,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -330,7 +331,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -341,7 +342,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -352,7 +353,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -368,7 +369,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -390,7 +391,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -401,7 +402,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -412,7 +413,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -423,7 +424,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -439,7 +440,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -462,7 +463,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -476,7 +477,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -490,7 +491,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -504,7 +505,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -523,7 +524,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -547,7 +548,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -561,7 +562,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -575,7 +576,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -589,7 +590,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -608,7 +609,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -633,7 +634,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -650,7 +651,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -667,7 +668,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -684,7 +685,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -707,7 +708,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -733,7 +734,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -750,7 +751,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -767,7 +768,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -784,7 +785,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -812,7 +813,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -839,7 +840,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -859,7 +860,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -879,7 +880,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -899,7 +900,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -930,7 +931,7 @@ namespace hyperion::enum_::detail {
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -958,7 +959,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -978,7 +979,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, m_one);
             }
@@ -998,7 +999,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -1018,7 +1019,7 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
+            constexpr auto type = list.at(_index);
             if constexpr(_index == 0_value) {
                 return ptr_to_reference(type, std::move(m_one));
             }
@@ -1045,7 +1046,7 @@ namespace hyperion::enum_::detail {
       public:
         using meta_info = MetaInfo<TTypes...>;
         static constexpr auto info = meta_info{};
-        static constexpr auto index = mpl::Value<TIndex>{};
+        static constexpr auto _index = mpl::Value<TIndex>{};
         static constexpr auto list = meta_info::list;
 
       private:
@@ -1054,7 +1055,7 @@ namespace hyperion::enum_::detail {
         }
 
         using t_one = typename decltype(ref_to_ptr(0_value))::type;
-        constexpr auto next = info.next_variant(index);
+        constexpr auto next = info.next_variant(_index);
         using t_next = typename std::remove_cvref_t<decltype(next)>::type;
 
       public:
@@ -1067,8 +1068,8 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(ref_to_ptr(_index).as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
-            if constexpr(_index == index) {
+            constexpr auto type = list.at(_index);
+            if constexpr(_index == _index) {
                 return ptr_to_reference(type, m_self);
             }
             else {
@@ -1078,8 +1079,8 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_lvalue_reference())::type {
-            constexpr auto type = list.at(index);
-            if constexpr(_index == index) {
+            constexpr auto type = list.at(_index);
+            if constexpr(_index == _index) {
                 return ptr_to_reference(type, m_self);
             }
             else {
@@ -1089,8 +1090,8 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(ref_to_ptr(_index).as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
-            if constexpr(_index == index) {
+            constexpr auto type = list.at(_index);
+            if constexpr(_index == _index) {
                 return ptr_to_reference(type, std::move(m_self));
             }
             else {
@@ -1100,8 +1101,8 @@ namespace hyperion::enum_::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(ref_to_ptr(_index).as_const().as_rvalue_reference())::type {
-            constexpr auto type = list.at(index);
-            if constexpr(_index == index) {
+            constexpr auto type = list.at(_index);
+            if constexpr(_index == _index) {
                 return ptr_to_reference(type, std::move(m_self));
             }
             else {
@@ -1111,26 +1112,52 @@ namespace hyperion::enum_::detail {
     };
 
     template<typename TType>
-    concept BaseStorage = requires(mpl::MetaValue auto index, TType value) {
+    concept BaseStorage = requires(mpl::MetaValue auto _index, TType value) {
         {
             value.storage()
         } -> std::convertible_to<const TType&>;
-        requires value.get(index);
+        requires value.get(_index);
     };
 
-    struct GetMixin {
-        static constexpr decltype(auto) get(BaseStorage auto&& self, mpl::MetaValue auto index) {
-            return std::forward<decltype(self)>(self).get(index);
+    static constexpr auto
+    make_ref_qualified_like(mpl::MetaType auto current, mpl::MetaType auto desired) {
+        using res = decltype(desired);
+        using cur = decltype(current);
+        if constexpr(res{}.is_lvalue_reference()) {
+            return cur{}.as_lvalue_reference();
         }
-    };
+        else if constexpr(res{}.is_rvalue_reference()) {
+            return cur{}.as_rvalue_reference();
+        }
+        else {
+            return cur{};
+        }
+    }
+
+    static constexpr auto
+    make_qualified_like(mpl::MetaType auto current, mpl::MetaType auto desired) {
+        using res = decltype(desired);
+        using cur = decltype(current);
+        if constexpr(res{}.is_const()) {
+            return make_ref_qualified_like(cur{}.as_const(), res{});
+        }
+        else {
+            return make_ref_qualified_like(cur{}, res{});
+        }
+    }
+
+    static constexpr auto get(BaseStorage auto&& self, mpl::MetaValue auto _index) ->
+        typename decltype(make_qualified_like(DECLTYPE(self.get(_index)){},
+                                              DECLTYPE(self){}))::type {
+        return std::forward<decltype(self)>(self).get(_index);
+    }
 
     template<typename... TTypes>
     struct VariantStorageBase;
 
     template<typename... TTypes>
         requires(enable_ebo(mpl::List<TTypes...>{}))
-    struct VariantStorageBase<TTypes...> : VariantEBO<TTypes...>,
-                                           GetMixin {
+    struct VariantStorageBase<TTypes...> : public VariantEBO<TTypes...> {
         using impl = VariantEBO<TTypes...>;
         using meta_info = typename impl::meta_info;
         static constexpr auto list = impl::list;
@@ -1140,65 +1167,308 @@ namespace hyperion::enum_::detail {
 
         size_type m_index = invalid_index;
 
-        constexpr auto set_index([[maybe_unused]] size_type index) noexcept -> void {
-            m_index = index;
+        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
+            m_index = _index;
         }
 
         constexpr auto index() const noexcept -> size_type {
             return m_index;
         }
 
-        constexpr decltype(auto) storage() & noexcept {
+        constexpr auto storage() & noexcept -> impl& {
             return *this;
         }
-        constexpr decltype(auto) storage() const& noexcept {
+        constexpr auto storage() const& noexcept -> const impl& {
             return *this;
         }
-        constexpr decltype(auto) storage() && noexcept {
+        constexpr auto storage() && noexcept -> impl&& {
             return std::move(*this);
         }
-        constexpr decltype(auto) storage() const&& noexcept {
+        constexpr auto storage() const&& noexcept -> const impl&& {
             return std::move(*this);
         }
     };
 
     template<typename... TTypes>
         requires(disable_ebo(mpl::List<TTypes...>{}))
-    struct VariantStorageBase<TTypes...> : GetMixin {
-        using impl = VariantEBO<TTypes...>;
+    struct VariantStorageBase<TTypes...> {
+        using impl = VariantUnion<0_usize, TTypes...>;
         using meta_info = typename impl::meta_info;
         static constexpr auto list = impl::list;
         using size_type = typename meta_info::size_type;
         static constexpr auto size = meta_info::SIZE;
         static constexpr size_type invalid_index = static_cast<size_type>(-1);
-        using _union = VariantUnion<0, TTypes...>;
 
-        _union m_union;
+        impl m_union;
         size_type m_index = invalid_index;
 
-        constexpr auto set_index([[maybe_unused]] size_type index) noexcept -> void {
-            m_index = index;
+        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
+            m_index = _index;
         }
 
         constexpr auto index() const noexcept -> size_type {
             return m_index;
         }
 
-        constexpr decltype(auto) storage() & noexcept {
+        constexpr auto storage() & noexcept -> impl& {
             return m_union;
         }
-        constexpr decltype(auto) storage() const& noexcept {
+        constexpr auto storage() const& noexcept -> const impl& {
             return m_union;
         }
-        constexpr decltype(auto) storage() && noexcept {
+        constexpr auto storage() && noexcept -> impl&& {
             return std::move(*this).m_union;
         }
-        constexpr decltype(auto) storage() const&& noexcept {
+        constexpr auto storage() const&& noexcept -> const impl&& {
             return std::move(*this).m_union;
         }
     };
-} // namespace hyperion::enum_::detail
+
+    template<typename TType1>
+        requires(disable_ebo(mpl::List<TType1, None>{}))
+                and (mpl::decltype_<TType1>().is_lvalue_reference()
+                     or mpl::decltype_<TType1>().template satisfies<std::is_pointer>())
+    struct VariantStorageBase<TType1, None> {
+        using impl = VariantUnion<0_usize, TType1, None>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::SIZE;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+
+        impl m_union;
+
+        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
+            if(_index == 1) {
+                m_union.get(0_value) = nullptr;
+            }
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return m_union.get(0_value) == nullptr ? 1 : 0;
+        }
+
+        constexpr auto storage() & noexcept -> impl& {
+            return m_union;
+        }
+        constexpr auto storage() const& noexcept -> const impl& {
+            return m_union;
+        }
+        constexpr auto storage() && noexcept -> impl&& {
+            return std::move(*this).m_union;
+        }
+        constexpr auto storage() const&& noexcept -> const impl&& {
+            return std::move(*this).m_union;
+        }
+    };
+
+    template<typename... TTypes>
+    struct VariantStorage : public VariantStorageBase<TTypes...> {
+        using impl = VariantStorageBase<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::SIZE;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+
+        static constexpr auto variant_alternative(mpl::MetaValue auto _index) {
+            return list.at(_index);
+        }
+
+        static constexpr auto alternative_index(mpl::MetaType auto type) {
+            return list.index_of(type);
+        }
+
+        constexpr auto set_index(size_type _index) noexcept -> void {
+            static_cast<impl*>(this)->set_index(_index);
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
+            typename DECLTYPE(get((*this).storage(), _index))::type
+            requires(_index < size)
+        {
+            return get((*this).storage(), _index);
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
+            typename DECLTYPE(get((*this).storage(), _index))::type
+            requires(_index < size)
+        {
+            return get((*this).storage(), _index);
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
+            typename DECLTYPE(get(std::move(*this).storage(), _index))::type
+            requires(_index < size)
+        {
+            return get(std::move(*this).storage(), _index);
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
+            typename DECLTYPE(get(std::move(*this).storage(), _index))::type
+            requires(_index < size)
+        {
+            return get(std::move(*this).storage(), _index);
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) & noexcept ->
+            typename DECLTYPE((*this).get(list.index_of(decltype(type){})))::type
+            requires(list.contains(type))
+        {
+            return (*this).get(list.index_of(decltype(type){}));
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const& noexcept ->
+            typename DECLTYPE((*this).get(list.index_of(decltype(type){})))::type
+            requires(list.contains(type))
+        {
+            return (*this).get(list.index_of(decltype(type){}));
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) && noexcept ->
+            typename DECLTYPE(std::move(*this).get(list.index_of(decltype(type){})))::type
+            requires(list.contains(type))
+        {
+            return std::move(*this).get(list.index_of(decltype(type){}));
+        }
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const&& noexcept ->
+            typename DECLTYPE(std::move(*this).get(list.index_of(decltype(type){})))::type
+            requires(list.contains(type))
+        {
+            return std::move(*this).get(list.index_of(decltype(type){}));
+        }
+
+        [[nodiscard]] static consteval auto
+        should_destruct([[maybe_unused]] mpl::MetaValue auto _index) noexcept -> bool {
+            if constexpr(decltype(_index){} >= size) {
+                return false;
+            }
+            else {
+                constexpr auto type = list.at(decltype(_index){});
+                return type.is_destructible() and not type.is_trivially_destructible();
+            }
+        }
+
+        constexpr auto destruct([[maybe_unused]] mpl::MetaValue auto _index) noexcept(
+            list.at(decltype(_index){}.is_noexcept_destructible())) -> void {
+            if constexpr(should_destruct(decltype(_index){})) {
+                using type = typename decltype(variant_alternative(decltype(_index){}))::type;
+                get(decltype(_index){}).~type();
+            }
+        }
+
+        constexpr auto
+        destruct(size_type current_index) noexcept(list.all_of(mpl::noexcept_destructible))
+            -> void {
+            if(current_index != invalid_index) {
+                hyperion::detail::indexed_call(
+                    current_index,
+                    mpl::Value<size>{},
+                    [this](mpl::MetaValue auto _index) { this->destruct(_index); });
+                set_index(invalid_index);
+            }
+        }
+
+        template<typename... TArgs>
+        constexpr auto construct(mpl::MetaValue auto _index, TArgs&&... args) noexcept(
+            list.at(decltype(_index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+            -> void
+            requires(decltype(_index){} < size)
+                    and (list.at(decltype(_index){}).is_constructible_from(mpl::List<TArgs...>{}))
+                    and (not(list.at(0_value).is_lvalue_reference()
+                             and list
+                                     == mpl::List<typename decltype(list.at(0_value))::type,
+                                                  None>{})
+                         or mpl::List<TArgs...>{}.size() == 1_value)
+        {
+            if constexpr(list.at(0_value).is_lvalue_reference()
+                         and list == mpl::List<typename decltype(list.at(0_value))::type, None>{})
+            {
+                if constexpr(decltype(_index){} == 0_value) {
+                    std::construct_at(std::addressof(this->get(0_value)), std::addressof(args)...);
+                }
+                else {
+                    std::construct_at(std::addressof(this->get(0_value)), nullptr);
+                }
+            }
+            else {
+                try {
+                    if(this->index() != invalid_index) {
+                        destruct(this->index());
+                    }
+
+                    std::construct_at(std::addressof(this->get(_index)),
+                                      std::forward<TArgs>(args)...);
+                    set_index(static_cast<size_type>(_index));
+                }
+                catch(...) {
+                    set_index(invalid_index);
+                    if constexpr(not list.at(decltype(_index){})
+                                         .is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+                    {
+                        throw;
+                    }
+                }
+            }
+        }
+
+        template<typename TArg>
+        static constexpr auto nothrow_assignable = [](mpl::MetaType auto type) -> bool {
+            return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
+                                                TArg>;
+        };
+        template<typename TArg>
+        static constexpr auto assignable = [](mpl::MetaType auto type) -> bool {
+            return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type, TArg>;
+        };
+
+        template<typename TArg>
+        constexpr auto
+        assign(mpl::MetaValue auto _index,
+               TArg&& arg) noexcept(list.at(_index).satisfies(nothrow_assignable<TArg>)) -> void
+            requires(list.at(_index).satisfies(assignable<TArg>))
+        {
+            static constexpr auto new_variant = list.at(decltype(_index){});
+
+            if constexpr(list.at(0_value).is_lvalue_reference()
+                         and list == mpl::List<typename decltype(list.at(0_value))::type, None>{}) {
+                if constexpr(decltype(_index){} == 0_value) {
+                    if (this->get(0_value) == nullptr) {
+                        construct(0_value, std::forward<TArg>(arg));
+                    } else {
+                        this->get(0_value) = std::addressof(std::forward<TArg>(arg));
+                    }
+                }
+                else {
+                    this->get(0_value) = nullptr;
+                }
+            }
+            else {
+                try {
+                    if(this->index() != _index) {
+                        destruct(this->index());
+
+                        if constexpr(new_variant.is_constructible_from(mpl::List<TArg>{})) {
+                            std::construct_at(
+                                std::addressof(this->get(_index), std::forward<TArg>(arg)));
+                            set_index(static_cast<size_type>(_index));
+                            return;
+                        }
+                        else {
+                            static_assert(new_variant.is_default_constructible());
+                            std::construct_at(std::addressof(this->get(_index)));
+                        }
+                    }
+
+                    this->get(_index) = std::forward<TArg>(arg);
+                    set_index(static_cast<size_type>(_index));
+                }
+                catch(...) {
+                    set_index(invalid_index);
+                    if constexpr(not nothrow_assignable<TArg>) {
+                        throw;
+                    }
+                }
+            }
+        }
+    };
+} // namespace hyperion::variant::detail
 
 #undef DECLTYPE
 
-#endif // HYPERION_STD_ENUM_STORAGE_H
+#endif // HYPERION_STD_VARIANT_STORAGE_H
