@@ -6,7 +6,7 @@ on:
 
 jobs:
   linux-gcc-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         version: [13]
@@ -62,7 +62,7 @@ jobs:
           xrepo install -y --toolchain=gcc-${{matrix.version}} --configs="hyperion_enable_tracy=true,hyperion_enable_testing=true" "hyperion_std ${{ steps.extract_branch.outputs.branch }}"
 
   linux-clang-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         version: [16, 17, 18]
