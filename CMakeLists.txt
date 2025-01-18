@@ -31,14 +31,14 @@ if(${HYPERION_USE_FETCH_CONTENT})
 
     FetchContent_Declare(hyperion_mpl
         GIT_REPOSITORY "https://github.com/braxtons12/hyperion_mpl"
-        GIT_TAG "v0.9.1"
+        GIT_TAG "v0.9.2"
         SYSTEM
         )
     FetchContent_MakeAvailable(hyperion_mpl)
 
     FetchContent_Declare(hyperion_assert
         GIT_REPOSITORY "https://github.com/braxtons12/hyperion_assert"
-        GIT_TAG "v0.2.0"
+        GIT_TAG "v0.2.1"
         SYSTEM
         )
     FetchContent_MakeAvailable(hyperion_assert)
