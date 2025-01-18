@@ -48,6 +48,8 @@
 
 namespace hyperion {
 
+#define DECLTYPE(x) decltype(mpl::decltype_<decltype(x)>())
+
     template<typename... TFuncs>
     struct Overload : TFuncs... {
         using TFuncs::operator()...;
@@ -57,6 +59,12 @@ namespace hyperion {
 
     namespace detail {
         using mpl::operator""_value;
+
+        [[nodiscard]] constexpr auto
+        is_bare_type_or_unqualified_lvalue_reference(mpl::MetaType auto type) {
+            return not type.is_const() and not type.is_volatile()
+                   and not type.is_rvalue_reference();
+        }
 
         [[nodiscard]] constexpr auto
         has_same_return_type_for_arg_packs([[maybe_unused]] mpl::MetaType auto func,
@@ -99,6 +107,154 @@ namespace hyperion {
                 mpl::List<mpl::List<bool>, mpl::List<int, double>, mpl::List<float, int>>{}));
         } // namespace test
     } // namespace detail
+
+    class BadVariantAccess final : public std::exception {
+      public:
+        BadVariantAccess() noexcept = default;
+        BadVariantAccess(const BadVariantAccess&) noexcept = default;
+        BadVariantAccess(BadVariantAccess&&) noexcept = default;
+        ~BadVariantAccess() noexcept final = default;
+        auto operator=(const BadVariantAccess&) noexcept -> BadVariantAccess& = default;
+        auto operator=(BadVariantAccess&&) noexcept -> BadVariantAccess& = default;
+
+        [[nodiscard]] auto what() const noexcept -> const char* final {
+            return message;
+        }
+
+      private:
+        static constexpr auto* message = "Attempted to access a variant alternative that was not "
+                                         "the alternative stored in the variant";
+    };
+
+    template<typename TType>
+    static constexpr auto in_place_type = mpl::Type<TType>{};
+
+    template<std::size_t TIndex>
+    static constexpr auto in_place_index = mpl::Value<TIndex>{};
+
+    namespace detail {
+        static constexpr auto is_metatype = [](mpl::MetaType auto type) {
+            return mpl::Value<mpl::MetaType<typename decltype(type)::type>, bool>{};
+        };
+
+        static constexpr auto is_metavalue = [](mpl::MetaType auto type) {
+            return mpl::Value<mpl::MetaValue<typename decltype(type)::type>, bool>{};
+        };
+    } // namespace detail
+
+    using mpl::operator""_value;
+
+    template<typename... TTypes>
+        requires(
+            mpl::List<TTypes...>{}.all_of(detail::is_bare_type_or_unqualified_lvalue_reference))
+    class Variant : public variant::detail::VariantMoveAssignment<TTypes...> {
+      private:
+        using storage = typename variant::detail::VariantMoveAssignment<TTypes...>::storage;
+
+      public:
+        using size_type = typename storage::size_type;
+        static constexpr auto list = storage::list;
+        static constexpr auto size = storage::size;
+        static constexpr auto invalid_index = storage::invalid_index;
+
+        static constexpr auto variant_alternative(mpl::MetaValue auto _index) {
+            return list.at(_index);
+        }
+
+        static constexpr auto alternative_index(mpl::MetaType auto type) {
+            return list.index_of(type);
+        }
+
+      protected:
+        template<typename... TArgs>
+        constexpr auto construct(mpl::MetaValue auto index, TArgs&&... args) noexcept(
+            list.at(decltype(index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+            -> void
+            requires(list.at(decltype(index){}).is_constructible_from(mpl::List<TArgs...>{}))
+        {
+            storage::construct(index, std::forward<TArgs>(args)...);
+        }
+
+        template<typename TArg>
+        constexpr auto assign(mpl::MetaValue auto index, TArg&& arg) noexcept(
+            list.at(decltype(index){}).satisfies(variant::detail::nothrow_assignable<TArg>)) -> void
+            requires(list.at(decltype(index){}).satisfies(variant::detail::assignable<TArg>))
+        {
+            storage::assign(index, std::forward<TArg>(arg));
+        }
+
+      public:
+        constexpr Variant() noexcept(list.front().is_noexcept_default_constructible())
+            requires(list.front().is_default_constructible())
+        {
+            construct(0_value);
+        }
+
+        explicit(false) constexpr Variant(auto&& value) noexcept(
+            resolve_overload(list, DECLTYPE(value){})
+                .is_noexcept_constructible_from(DECLTYPE(value){}))
+            requires(not DECLTYPE(value){}.is(mpl::decltype_<Variant>())
+                     and not DECLTYPE(value){}.satisfies(detail::is_metatype)
+                     and not DECLTYPE(value){}.satisfies(detail::is_metavalue)
+                     and list.contains(resolve_overload(list, DECLTYPE(value){}))
+                     and resolve_overload(list, DECLTYPE(value){})
+                             .is_constructible_from(DECLTYPE(value){}))
+        {
+            constexpr auto type = resolve_overload(list, DECLTYPE(value){});
+            constexpr auto index = list.indexof(type);
+            construct(index, std::forward<decltype(value)>(value));
+        }
+
+        template<typename... TArgs>
+        constexpr explicit Variant(mpl::MetaType auto type, TArgs&&... args) noexcept(
+            decltype(type){}.is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+            requires(list.count(decltype(type){})
+                     and decltype(type){}.is_constructible_from(mpl::List<TArgs...>{}))
+        {
+            constexpr auto index = list.index_of(type);
+            construct(index, std::forward<TArgs>(args)...);
+        }
+
+        template<typename TListType, typename... TArgs>
+        constexpr explicit Variant(
+            mpl::MetaType auto type,
+            std::initializer_list<TListType> ilist,
+            TArgs&&... args) noexcept(decltype(type){}
+                                          .is_noexcept_constructible_from(
+                                              mpl::List<decltype(ilist), TArgs...>{}))
+            requires(
+                list.count(decltype(type){})
+                and decltype(type){}.is_constructible_from(mpl::List<decltype(ilist), TArgs...>{}))
+        {
+            constexpr auto index = list.index_of(type);
+            construct(index, ilist, std::forward<TArgs>(args)...);
+        }
+
+        template<typename... TArgs>
+        constexpr explicit Variant(mpl::MetaValue auto index, TArgs&&... args) noexcept(
+            list.at(decltype(index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+            requires(decltype(index){} < size
+                     and list.at(decltype(index){}).is_constructible_from(mpl::List<TArgs...>{}))
+        {
+            construct(index, std::forward<TArgs>(args)...);
+        }
+
+        template<typename TListType, typename... TArgs>
+        constexpr explicit Variant(
+            mpl::MetaValue auto index,
+            std::initializer_list<TListType> ilist,
+            TArgs&&... args) noexcept(list.at(decltype(index){})
+                                          .is_noexcept_constructible_from(
+                                              mpl::List<decltype(ilist), TArgs...>{}))
+            requires(decltype(index){} < size
+                     and list.at(decltype(index){})
+                             .is_constructible_from(mpl::List<decltype(ilist), TArgs...>{}))
+        {
+            construct(index, ilist, std::forward<TArgs>(args)...);
+        }
+    };
+
+#undef DECLTYPE
 } // namespace hyperion
 
 #endif // HYPERION_VARIANT_H

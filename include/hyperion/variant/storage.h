@@ -39,7 +39,7 @@
 #include <hyperion/platform/def.h>
 #include <hyperion/platform/types.h>
 
-#define DECLTYPE(x) decltype(mpl::decltype_(x))
+#define DECLTYPE(x) decltype(mpl::decltype_<decltype(x)>())
 
 namespace hyperion::variant::detail {
     using mpl::operator""_value;
@@ -91,9 +91,9 @@ namespace hyperion::variant::detail {
     }
 
     static constexpr auto ptr_to_reference([[maybe_unused]] mpl::MetaType auto _type, auto&& ptr) {
-        using type = DECLTYPE(ptr);
+        constexpr auto type = DECLTYPE(ptr){};
         using actual = decltype(_type);
-        if constexpr(type{}
+        if constexpr(type
                          .template apply<std::remove_cvref_t>()
                          .template satisfies<std::is_pointer>()
                      and actual{}.template statisfies<std::is_reference>())
@@ -1116,8 +1116,9 @@ namespace hyperion::variant::detail {
     }
 
     static constexpr auto get(BaseStorage auto&& self, mpl::MetaValue auto _index) ->
-        typename decltype(make_qualified_like(mpl::decltype_(decltype(self){}.get(decltype(_index){})),
-                                              mpl::decltype_(decltype(self){})))::type {
+        typename decltype(make_qualified_like(
+            mpl::decltype_(decltype(self){}.get(decltype(_index){})),
+            mpl::decltype_(decltype(self){})))::type {
         return std::forward<decltype(self)>(self).get(_index);
     }
 
@@ -1231,6 +1232,17 @@ namespace hyperion::variant::detail {
         }
     };
 
+    template<typename TArg>
+    static constexpr auto nothrow_assignable
+        = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
+        return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
+                                            TArg>;
+    };
+    template<typename TArg>
+    static constexpr auto assignable = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
+        return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type, TArg>;
+    };
+
     template<typename... TTypes>
     struct VariantStorage : public VariantStorageBase<TTypes...> {
         using impl = VariantStorageBase<TTypes...>;
@@ -1239,14 +1251,6 @@ namespace hyperion::variant::detail {
         using size_type = typename meta_info::size_type;
         static constexpr auto size = meta_info::SIZE;
         static constexpr size_type invalid_index = static_cast<size_type>(-1);
-
-        static constexpr auto variant_alternative(mpl::MetaValue auto _index) {
-            return list.at(_index);
-        }
-
-        static constexpr auto alternative_index(mpl::MetaType auto type) {
-            return list.index_of(type);
-        }
 
         constexpr auto set_index(size_type _index) noexcept -> void {
             static_cast<impl*>(this)->set_index(_index);
@@ -1317,7 +1321,7 @@ namespace hyperion::variant::detail {
         constexpr auto destruct([[maybe_unused]] mpl::MetaValue auto _index) noexcept(
             list.at(decltype(_index){}.is_noexcept_destructible())) -> void {
             if constexpr(should_destruct(decltype(_index){})) {
-                using type = typename decltype(variant_alternative(decltype(_index){}))::type;
+                using type = typename decltype(list.at(decltype(_index){}))::type;
                 get(decltype(_index){}).~type();
             }
         }
@@ -1376,17 +1380,6 @@ namespace hyperion::variant::detail {
                 }
             }
         }
-
-        template<typename TArg>
-        static constexpr auto nothrow_assignable
-            = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
-            return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
-                                                TArg>;
-        };
-        template<typename TArg>
-        static constexpr auto assignable = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
-            return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type, TArg>;
-        };
 
         template<typename TArg>
         constexpr auto
