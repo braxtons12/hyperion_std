@@ -6,22 +6,14 @@ on:
 
 jobs:
   linux-gcc-13-x64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: [13]
+        version: [13, 14]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - uses: seanmiddleditch/gha-setup-ninja@v4
-
-      - name: Install Toolchains PPA
-        run: |
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get -y update
-
-      - name: Install GCC
-        run: sudo apt-get -y install gcc-${{matrix.version}} g++-${{matrix.version}}
 
       - name: Configure
         env:
@@ -47,7 +39,7 @@ jobs:
         run: ctest --preset env-cc-release --verbose
 
   linux-clang-x64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         version: [16, 17, 18]
@@ -56,15 +48,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: seanmiddleditch/gha-setup-ninja@v4
 
-      - name: Install LLVM and Clang
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{matrix.version}}
-          sudo apt-get -y install clang-tidy-${{matrix.version}}
-
       - name: Replace clang-tidy
-        run: sudo cp /usr/bin/clang-tidy-${{matrix.version}} /usr/bin/clang-tidy -f
+        run: |
+          if [[ "$(realpath --canonicalize-existing /usr/bin/clang-tidy-${{matrix.version}})"
+              != "$(realpath --canonlicalize-existing /usr/bin/clang-tidy)"
+          ]]; then
+            sudo cp /usr/bin/clang-tidy-${{matrix.version}} /usr/bin/clang-tidy -f
+          fi
 
       - name: Configure
         env:
