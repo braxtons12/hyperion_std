@@ -1612,6 +1612,71 @@ namespace hyperion::variant::detail {
         }
     };
 
+    template<typename... TTypes>
+    struct VariantMoveConstructor;
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).none_of(mpl::move_constructible))
+    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+        using storage = typename VariantCopyAssignment<TTypes...>::storage;
+        using base = VariantCopyAssignment<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantMoveConstructor() = default;
+        VariantMoveConstructor(const VariantMoveConstructor&) = default;
+        VariantMoveConstructor(VariantMoveConstructor&&) noexcept = delete;
+        auto operator=(const VariantMoveConstructor&) -> VariantMoveConstructor& = default;
+        auto operator=(VariantMoveConstructor&&) noexcept -> VariantMoveConstructor& = default;
+    };
+
+    template<typename... TTypes>
+        requires(
+            mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::trivially_move_constructible))
+    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+        using storage = typename VariantCopyAssignment<TTypes...>::storage;
+        using base = VariantCopyAssignment<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantMoveConstructor() = default;
+        VariantMoveConstructor(const VariantMoveConstructor&) = default;
+        VariantMoveConstructor(VariantMoveConstructor&&) noexcept = default;
+        auto operator=(const VariantMoveConstructor&) -> VariantMoveConstructor& = default;
+        auto operator=(VariantMoveConstructor&&) noexcept -> VariantMoveConstructor& = default;
+    };
+
+    template<typename... TTypes>
+        requires(mpl::List<TTypes>{}.apply(reference_to_ptr).all_of(mpl::move_constructible)
+                 and not mpl::List<TTypes>{}
+                             .apply(reference_to_ptr)
+                             .all_of(mpl::trivially_move_constructible))
+    struct VariantMoveConstructor : public VariantCopyAssignment<TTypes...> {
+        using storage = typename VariantCopyAssignment<TTypes...>::storage;
+        using base = VariantCopyAssignment<TTypes...>;
+        using base::base;
+        using base::operator=;
+
+        VariantMoveConstructor() = default;
+        VariantMoveConstructor(const VariantMoveConstructor&) = default;
+        auto operator=(const VariantMoveConstructor&) -> VariantMoveConstructor& = default;
+        auto operator=(VariantMoveConstructor&&) noexcept -> VariantMoveConstructor& = default;
+
+        VariantMoveConstructor(VariantMoveConstructor&& var) noexcept(
+            storage::list.all_of(mpl::noexcept_move_constructible)) {
+            if(var.index() != storage::invalid_index) {
+                hyperion::detail::indexed_call(
+                    var.index(),
+                    mpl::Value<storage::size>{},
+                    [this, &var](mpl::MetaValue auto index) noexcept(
+                        storage::list.all_of(mpl::noexcept_move_constructible)) -> void {
+                        this->construct(index, std::move(var).get(index));
+                        var.set_index(storage::invalid_index);
+                    });
+            }
+        }
+    };
+
     template<typename TReturn, typename TFunc, typename TVariant, typename TIndexSequence>
     struct JumpTableGenerator;
 
