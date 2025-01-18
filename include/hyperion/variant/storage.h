@@ -1403,7 +1403,7 @@ namespace hyperion::variant::detail {
             {
                 if constexpr(decltype(_index){} == 0_value) {
                     if(this->get(0_value) == nullptr) {
-                        construct(0_value, std::forward<TArg>(arg));
+                        construct(0_value, std::addressof(std::forward<TArg>(arg)));
                     }
                     else {
                         this->get(0_value) = std::addressof(std::forward<TArg>(arg));
@@ -1413,31 +1413,104 @@ namespace hyperion::variant::detail {
                     this->get(0_value) = nullptr;
                 }
             }
+            // We do not enforce hard requirements to prevent valueless by exception,
+            // but we try to avoid the valueless by exception case as much as possible.
+            // Where able, rely on noexcept-ness of constructors to either avoid the possibility
+            // entirely, or to restore previous state where that is not possible.
+            // Worst case (nothing noexcept), we still have the possibility of becoming
+            // valueless by exception
+            else if(this->index() != _index) {
+                // can construct in place safely due to noexcept constructor
+                if constexpr(new_variant.is_noexcept_constructible_from(mpl::List<TArg>{})) {
+                    destruct(this->index());
+                    std::construct_at(std::addressof(this->get(_index), std::forward<TArg>(arg)));
+                    set_index(static_cast<size_type>(_index));
+                }
+                // can construct in place, and if necessary, safely restore previous alternative
+                // due to noexcept move constructors of other alternatives
+                else if constexpr(new_variant.is_constructible_from(mpl::List<TArg>{})
+                                  and list.remove(new_variant)
+                                          .all_of(mpl::noexcept_move_constructible))
+                {
+                    hyperion::detail::indexed_call(
+                        this->index(),
+                        mpl::Value<size>{},
+                        [this, &arg](mpl::MetaValue auto idx) {
+                            auto temp = std::move(*this).get(idx);
+                            try {
+                                destruct(this->index());
+                                std::construct_at(std::addressof(this->get(decltype(_index){}),
+                                                                 std::forward<TArg>(arg)));
+                                this->set_index(static_cast<size_type>(decltype(_index){}));
+                            }
+                            catch(...) {
+                                std::construct_at(this->get(idx), std::move(temp));
+                                throw;
+                            }
+                        });
+                }
+                // can safely default construct and assign
+                else if constexpr(new_variant.is_noexcept_default_constructible()
+                                  and new_variant.satisfies(nothrow_assignable<TArg>))
+                {
+                    destruct(this->index());
+                    std::construct_at(std::addressof(this->get(_index)));
+                    this->get(_index) = std::forward<TArg>(arg);
+                    set_index(static_cast<size_type>(_index));
+                }
+                // can default construct and assign, and if necessary safely restore previous
+                // alternative due to noexcept move constructors of other alternatives
+                else if constexpr(list.remove(new_variant).all_of(mpl::noexcept_move_constructible))
+                {
+                    static_assert(new_variant.is_default_constructible());
+                    hyperion::detail::indexed_call(
+                        this->index(),
+                        mpl::Value<size>{},
+                        [this, &arg](mpl::MetaValue auto idx) {
+                            auto temp = std::move(*this).get(idx);
+                            try {
+                                destruct(this->index());
+                                std::construct_at(std::addressof(this->get(decltype(_index){})));
+                                this->get(idx) = std::forward<TArg>(arg);
+                                this->set_index(static_cast<size_type>(decltype(_index){}));
+                            }
+                            catch(...) {
+                                std::construct_at(this->get(idx), std::move(temp));
+                                throw;
+                            }
+                        });
+                }
+                // worst case, we will become valueless by exception if an exception is thrown
+                // by the default constructor of the new alternative, or by its assignment operator
+                else {
+                    static_assert(new_variant.is_default_constructible());
+                    try {
+                        destruct(this->index());
+                        std::construct_at(std::addressof(this->get(_index)));
+                        this->get(_index) = std::forward<TArg>(arg);
+                        set_index(static_cast<size_type>(_index));
+                    }
+                    catch(...) {
+                        set_index(invalid_index);
+                        throw;
+                    }
+                }
+            }
+            // we can safely assign
+            else if constexpr(new_variant.satisfies(nothrow_assignable<TArg>)) {
+                this->get(_index) = std::forward<TArg>(arg);
+                set_index(static_cast<size_type>(_index));
+            }
+            // worse case, we will become valueless by exception if an exception is thrown
+            // by the assignment operator of the new alternative
             else {
                 try {
-                    if(this->index() != _index) {
-                        destruct(this->index());
-
-                        if constexpr(new_variant.is_constructible_from(mpl::List<TArg>{})) {
-                            std::construct_at(
-                                std::addressof(this->get(_index), std::forward<TArg>(arg)));
-                            set_index(static_cast<size_type>(_index));
-                            return;
-                        }
-                        else {
-                            static_assert(new_variant.is_default_constructible());
-                            std::construct_at(std::addressof(this->get(_index)));
-                        }
-                    }
-
                     this->get(_index) = std::forward<TArg>(arg);
                     set_index(static_cast<size_type>(_index));
                 }
                 catch(...) {
                     set_index(invalid_index);
-                    if constexpr(not nothrow_assignable<TArg>) {
-                        throw;
-                    }
+                    throw;
                 }
             }
         }
