@@ -264,7 +264,9 @@ namespace hyperion {
 
         constexpr auto operator=(auto&& value) noexcept(
             DECLTYPE(value){}.satisfies(noexcept_assignable_requirements))
-            -> Variant& requires(DECLTYPE(value){}.satisfies(assignable_requirements)) {
+            -> Variant& requires(
+                DECLTYPE(value){}.satisfies(assignable_requirements)
+                and not DECLTYPE(value){}.is_qualification_of(mpl::decltype_<Variant>())) {
                 assign(list.index_of(resolve_overload(list, DECLTYPE(value){})),
                        std::forward<decltype(value)>(value));
                 return *this;
