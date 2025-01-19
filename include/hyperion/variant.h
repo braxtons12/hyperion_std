@@ -174,22 +174,24 @@ namespace hyperion {
             = variant::detail::variant_assignable_requirements(list);
 
         template<typename... TArgs>
-        constexpr auto construct(mpl::MetaValue auto index, TArgs&&... args) noexcept(
-            list.at(decltype(index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+        constexpr auto construct(mpl::MetaValue auto _index, TArgs&&... args) noexcept(
+            list.at(decltype(_index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
             -> void
-            requires(list.at(decltype(index){}).is_constructible_from(mpl::List<TArgs...>{}))
+            requires(list.at(decltype(_index){}).is_constructible_from(mpl::List<TArgs...>{}))
         {
-            storage::construct(index, std::forward<TArgs>(args)...);
+            storage::construct(_index, std::forward<TArgs>(args)...);
         }
 
         template<typename TArg>
-        constexpr auto assign(mpl::MetaValue auto index, TArg&& arg) noexcept(
-            list.at(decltype(index){})
-                .satisfies(variant::detail::nothrow_assignable(mpl::decltype_<TArg>()))) -> void
-            requires(list.at(decltype(index){})
-                         .satisfies(variant::detail::assignable(mpl::decltype_<TArg>())))
+        constexpr auto assign(mpl::MetaValue auto _index, TArg&& arg) noexcept(
+            list.at(decltype(_index){})
+                .satisfies(variant::detail::nothrow_assignable(DECLTYPE(arg){}))
+            or list.at(decltype(_index){}.is_nothrow_constructible_from(DECLTYPE(arg){}))) -> void
+            requires(
+                list.at(decltype(_index){}).satisfies(variant::detail::assignable(DECLTYPE(arg){}))
+                or list.at(decltype(_index){}).is_constructible_from(DECLTYPE(arg){}))
         {
-            storage::assign(index, std::forward<TArg>(arg));
+            storage::assign(_index, std::forward<TArg>(arg));
         }
 
       public:
@@ -210,8 +212,8 @@ namespace hyperion {
                              .is_constructible_from(DECLTYPE(value){}))
         {
             constexpr auto type = resolve_overload(list, DECLTYPE(value){});
-            constexpr auto index = list.indexof(type);
-            construct(index, std::forward<decltype(value)>(value));
+            constexpr auto _index = list.index_of(type);
+            construct(_index, std::forward<decltype(value)>(value));
         }
 
         template<typename... TArgs>
@@ -220,8 +222,8 @@ namespace hyperion {
             requires(list.count(decltype(type){})
                      and decltype(type){}.is_constructible_from(mpl::List<TArgs...>{}))
         {
-            constexpr auto index = list.index_of(type);
-            construct(index, std::forward<TArgs>(args)...);
+            constexpr auto _index = list.index_of(type);
+            construct(_index, std::forward<TArgs>(args)...);
         }
 
         template<typename TListType, typename... TArgs>
@@ -235,31 +237,31 @@ namespace hyperion {
                 list.count(decltype(type){})
                 and decltype(type){}.is_constructible_from(mpl::List<decltype(ilist), TArgs...>{}))
         {
-            constexpr auto index = list.index_of(type);
-            construct(index, ilist, std::forward<TArgs>(args)...);
+            constexpr auto _index = list.index_of(type);
+            construct(_index, ilist, std::forward<TArgs>(args)...);
         }
 
         template<typename... TArgs>
-        constexpr explicit Variant(mpl::MetaValue auto index, TArgs&&... args) noexcept(
-            list.at(decltype(index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
-            requires(decltype(index){} < size
-                     and list.at(decltype(index){}).is_constructible_from(mpl::List<TArgs...>{}))
+        constexpr explicit Variant(mpl::MetaValue auto _index, TArgs&&... args) noexcept(
+            list.at(decltype(_index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
+            requires(decltype(_index){} < size
+                     and list.at(decltype(_index){}).is_constructible_from(mpl::List<TArgs...>{}))
         {
-            construct(index, std::forward<TArgs>(args)...);
+            construct(_index, std::forward<TArgs>(args)...);
         }
 
         template<typename TListType, typename... TArgs>
         constexpr explicit Variant(
-            mpl::MetaValue auto index,
+            mpl::MetaValue auto _index,
             std::initializer_list<TListType> ilist,
-            TArgs&&... args) noexcept(list.at(decltype(index){})
+            TArgs&&... args) noexcept(list.at(decltype(_index){})
                                           .is_noexcept_constructible_from(
                                               mpl::List<decltype(ilist), TArgs...>{}))
-            requires(decltype(index){} < size
-                     and list.at(decltype(index){})
+            requires(decltype(_index){} < size
+                     and list.at(decltype(_index){})
                              .is_constructible_from(mpl::List<decltype(ilist), TArgs...>{}))
         {
-            construct(index, ilist, std::forward<TArgs>(args)...);
+            construct(_index, ilist, std::forward<TArgs>(args)...);
         }
 
         constexpr auto operator=(auto&& value) noexcept(
@@ -271,6 +273,191 @@ namespace hyperion {
                        std::forward<decltype(value)>(value));
                 return *this;
             }
+
+        [[nodiscard]] constexpr auto index() const noexcept -> size_type {
+            return storage::index();
+        }
+
+        [[nodiscard]] constexpr auto
+        holds_alternative(mpl::MetaType auto type) const noexcept -> bool {
+            return index() == list.index_of(type);
+        }
+
+        template<typename TType>
+        [[nodiscard]] constexpr auto holds_alternative() const noexcept -> bool {
+            return index() == list.index_of(mpl::decltype_<TType>());
+        }
+
+        [[nodiscard]] constexpr auto holds_alternative(std::size_t _index) const noexcept -> bool {
+            return index() == _index;
+        }
+
+        [[nodiscard]] constexpr auto is(mpl::MetaType auto type) const noexcept -> bool {
+            return index() == list.index_of(type);
+        }
+
+        template<typename TType>
+        [[nodiscard]] constexpr auto is() const noexcept -> bool {
+            return index() == list.index_of(mpl::decltype_<TType>());
+        }
+
+        [[nodiscard]] constexpr auto is(std::size_t _index) const noexcept -> bool {
+            return index() == _index;
+        }
+
+        [[nodiscard]] constexpr auto is_valueless() const noexcept -> bool {
+            return index() == invalid_index;
+        }
+
+        [[nodiscard]] constexpr auto valueless_by_exception() const noexcept -> bool {
+            return index() == invalid_index;
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) & -> decltype(auto)
+            requires(decltype(_index){} < size)
+        {
+            if(not is(_index)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&>(*this).get(_index);
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) const& -> decltype(auto)
+            requires(decltype(_index){} < size)
+        {
+            if(not is(_index)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&>(*this).get(_index);
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) && -> decltype(auto)
+            requires(decltype(_index){} < size)
+        {
+            if(not is(_index)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&&>(std::move(*this)).get(_index);
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) const&& -> decltype(auto)
+            requires(decltype(_index){} < size)
+        {
+            if(not is(_index)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&&>(std::move(*this)).get(_index);
+        }
+
+        template<std::size_t TIndex>
+            requires(TIndex < size)
+        [[nodiscard]] constexpr auto get() & -> decltype(auto) {
+            if(not is(mpl::Value<TIndex>{})) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&>(*this).get(mpl::Value<TIndex>{});
+        }
+
+        template<std::size_t TIndex>
+            requires(TIndex < size)
+        [[nodiscard]] constexpr auto get() const& -> decltype(auto) {
+            if(not is(mpl::Value<TIndex>{})) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&>(*this).get(mpl::Value<TIndex>{});
+        }
+
+        template<std::size_t TIndex>
+            requires(TIndex < size)
+        [[nodiscard]] constexpr auto get() && -> decltype(auto) {
+            if(not is(mpl::Value<TIndex>{})) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&&>(std::move(*this)).get(mpl::Value<TIndex>{});
+        }
+
+        template<std::size_t TIndex>
+            requires(TIndex < size)
+        [[nodiscard]] constexpr auto get() const&& -> decltype(auto) {
+            if(not is(mpl::Value<TIndex>{})) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&&>(std::move(*this)).get(mpl::Value<TIndex>{});
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) & -> decltype(auto)
+            requires(list.count(type) == 1_value)
+        {
+            if(not is(type)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&>(*this).get(list.index_of(type));
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const& -> decltype(auto)
+            requires(list.count(type) == 1_value)
+        {
+            if(not is(type)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&>(*this).get(list.index_of(type));
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) && -> decltype(auto)
+            requires(list.count(type) == 1_value)
+        {
+            if(not is(type)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&&>(std::move(*this)).get(list.index_of(type));
+        }
+
+        [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const&& -> decltype(auto)
+            requires(list.count(type) == 1_value)
+        {
+            if(not is(type)) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&&>(std::move(*this)).get(list.index_of(type));
+        }
+
+        template<typename TType>
+            requires(list.count(mpl::decltype_<TType>()) == 1_value)
+        [[nodiscard]] constexpr auto get() & -> decltype(auto) {
+            if(not is(mpl::decltype_<TType>())) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&>(*this).get(list.index_of(mpl::decltype_<TType>()));
+        }
+
+        template<typename TType>
+            requires(list.count(mpl::decltype_<TType>()) == 1_value)
+        [[nodiscard]] constexpr auto get() const& -> decltype(auto) {
+            if(not is(mpl::decltype_<TType>())) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&>(*this).get(list.index_of(mpl::decltype_<TType>()));
+        }
+
+        template<typename TType>
+            requires(list.count(mpl::decltype_<TType>()) == 1_value)
+        [[nodiscard]] constexpr auto get() && -> decltype(auto) {
+            if(not is(mpl::decltype_<TType>())) {
+                throw BadVariantAccess();
+            }
+            return static_cast<storage&&>(std::move(*this))
+                .get(list.index_of(mpl::decltype_<TType>()));
+        }
+
+        template<typename TType>
+            requires(list.count(mpl::decltype_<TType>()) == 1_value)
+        [[nodiscard]] constexpr auto get() const&& -> decltype(auto) {
+            if(not is(mpl::decltype_<TType>())) {
+                throw BadVariantAccess();
+            }
+            return static_cast<const storage&&>(std::move(*this))
+                .get(list.index_of(mpl::decltype_<TType>()));
+        }
     };
 
 #undef DECLTYPE

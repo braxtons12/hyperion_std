@@ -1282,6 +1282,10 @@ namespace hyperion::variant::detail {
             static_cast<impl*>(this)->set_index(_index);
         }
 
+        constexpr auto index() const noexcept -> size_type {
+            return static_cast<const impl*>(this)->index();
+        }
+
         [[nodiscard]] constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename DECLTYPE(get((*this).storage(), _index))::type
             requires(_index < size)
