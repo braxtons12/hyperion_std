@@ -93,8 +93,7 @@ namespace hyperion::variant::detail {
     static constexpr auto ptr_to_reference([[maybe_unused]] mpl::MetaType auto _type, auto&& ptr) {
         constexpr auto type = DECLTYPE(ptr){};
         using actual = decltype(_type);
-        if constexpr(type
-                         .template apply<std::remove_cvref_t>()
+        if constexpr(type.template apply<std::remove_cvref_t>()
                          .template satisfies<std::is_pointer>()
                      and actual{}.template statisfies<std::is_reference>())
         {
@@ -1232,16 +1231,43 @@ namespace hyperion::variant::detail {
         }
     };
 
-    template<typename TArg>
-    static constexpr auto nothrow_assignable
-        = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
-        return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
-                                            TArg>;
-    };
-    template<typename TArg>
-    static constexpr auto assignable = []([[maybe_unused]] mpl::MetaType auto type) -> bool {
-        return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type, TArg>;
-    };
+    static constexpr auto nothrow_assignable([[maybe_unused]] mpl::MetaType auto arg) {
+        return []([[maybe_unused]] mpl::MetaType auto type) -> bool {
+            return std::is_nothrow_assignable_v<typename decltype(type.as_lvalue_reference())::type,
+                                                typename decltype(arg)::type>;
+        };
+    }
+
+    static constexpr auto assignable([[maybe_unused]] mpl::MetaType auto arg) {
+        return []([[maybe_unused]] mpl::MetaType auto type) -> bool {
+            return std::is_assignable_v<typename decltype(type.as_lvalue_reference())::type,
+                                        typename decltype(arg)::type>;
+        };
+    }
+
+    static constexpr auto
+    variant_noexcept_assignable_requirements([[maybe_unused]] mpl::MetaList auto _list) {
+        return [](mpl::MetaType auto type) {
+            constexpr auto list = decltype(_list){};
+            return list.all_of(mpl::noexcept_destructible)
+                   and resolve_overload(list, type)
+                           .satisfies(variant::detail::nothrow_assignable(type))
+                   and resolve_overload(list, type).is_noexcept_constructible_from(type);
+        };
+    }
+
+    static constexpr auto
+    variant_assignable_requirements([[maybe_unused]] mpl::MetaList auto _list) {
+        return [](mpl::MetaType auto type) {
+            constexpr auto list = decltype(_list){};
+            list.contains(resolve_overload(list, type))
+                and list.count(resolve_overload(list, type)) == 1_value
+                and (resolve_overload(list, type)
+                         .as_lvalue_reference()
+                         .satisfies(variant::detail::assignable(type))
+                     or resolve_overload(list, type).constructible_from(type));
+        };
+    }
 
     template<typename... TTypes>
     struct VariantStorage : public VariantStorageBase<TTypes...> {
@@ -1382,11 +1408,10 @@ namespace hyperion::variant::detail {
         }
 
         template<typename TArg>
-        constexpr auto
-        assign(mpl::MetaValue auto _index,
-               TArg&& arg) noexcept(list.at(decltype(_index){}).satisfies(nothrow_assignable<TArg>))
+        constexpr auto assign(mpl::MetaValue auto _index, TArg&& arg) noexcept(
+            list.at(decltype(_index){}).satisfies(nothrow_assignable(mpl::decltype_<TArg>())))
             -> void
-            requires(list.at(decltype(_index){}).satisfies(assignable<TArg>))
+            requires(list.at(decltype(_index){}).satisfies(assignable(mpl::decltype_<TArg>())))
         {
             constexpr auto new_variant = list.at(decltype(_index){});
 
@@ -1443,7 +1468,8 @@ namespace hyperion::variant::detail {
                 }
                 // can safely default construct and assign
                 else if constexpr(new_variant.is_noexcept_default_constructible()
-                                  and new_variant.satisfies(nothrow_assignable<TArg>))
+                                  and new_variant.satisfies(
+                                      nothrow_assignable(mpl::decltype_<TArg>())))
                 {
                     destruct(this->index());
                     std::construct_at(std::addressof(this->get(_index)));
@@ -1489,7 +1515,7 @@ namespace hyperion::variant::detail {
                 }
             }
             // we can safely assign
-            else if constexpr(new_variant.satisfies(nothrow_assignable<TArg>)) {
+            else if constexpr(new_variant.satisfies(nothrow_assignable(mpl::decltype_<TArg>()))) {
                 this->get(_index) = std::forward<TArg>(arg);
                 set_index(static_cast<size_type>(_index));
             }

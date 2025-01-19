@@ -140,6 +140,7 @@ namespace hyperion {
         static constexpr auto is_metavalue = [](mpl::MetaType auto type) {
             return mpl::Value<mpl::MetaValue<typename decltype(type)::type>, bool>{};
         };
+
     } // namespace detail
 
     using mpl::operator""_value;
@@ -166,6 +167,12 @@ namespace hyperion {
         }
 
       protected:
+        static constexpr auto noexcept_assignable_requirements
+            = variant::detail::variant_noexcept_assignable_requirements(list);
+
+        static constexpr auto assignable_requirements
+            = variant::detail::variant_assignable_requirements(list);
+
         template<typename... TArgs>
         constexpr auto construct(mpl::MetaValue auto index, TArgs&&... args) noexcept(
             list.at(decltype(index){}).is_noexcept_constructible_from(mpl::List<TArgs...>{}))
@@ -177,8 +184,10 @@ namespace hyperion {
 
         template<typename TArg>
         constexpr auto assign(mpl::MetaValue auto index, TArg&& arg) noexcept(
-            list.at(decltype(index){}).satisfies(variant::detail::nothrow_assignable<TArg>)) -> void
-            requires(list.at(decltype(index){}).satisfies(variant::detail::assignable<TArg>))
+            list.at(decltype(index){})
+                .satisfies(variant::detail::nothrow_assignable(mpl::decltype_<TArg>()))) -> void
+            requires(list.at(decltype(index){})
+                         .satisfies(variant::detail::assignable(mpl::decltype_<TArg>())))
         {
             storage::assign(index, std::forward<TArg>(arg));
         }
@@ -252,6 +261,14 @@ namespace hyperion {
         {
             construct(index, ilist, std::forward<TArgs>(args)...);
         }
+
+        constexpr auto operator=(auto&& value) noexcept(
+            DECLTYPE(value){}.satisfies(noexcept_assignable_requirements))
+            -> Variant& requires(DECLTYPE(value){}.satisfies(assignable_requirements)) {
+                assign(list.index_of(resolve_overload(list, DECLTYPE(value){})),
+                       std::forward<decltype(value)>(value));
+                return *this;
+            }
     };
 
 #undef DECLTYPE
