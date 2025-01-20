@@ -1091,31 +1091,30 @@ namespace hyperion::variant::detail {
     template<typename TType>
     concept Storage = requires(TType value) { value.get(0_value); };
 
-    static constexpr auto make_ref_qualified_like
-        = []([[maybe_unused]] mpl::MetaType auto current,
-             [[maybe_unused]] mpl::MetaType auto desired) {
-              constexpr auto res = decltype(desired){};
-              constexpr auto cur = decltype(current){};
-              if constexpr(res.is_lvalue_reference()) {
-                  return cur.as_lvalue_reference();
-              }
-              else if constexpr(res.is_rvalue_reference()) {
-                  return cur.as_rvalue_reference();
-              }
-              else {
-                  return cur;
-              }
-          };
+    static constexpr auto make_ref_qualified_like = []([[maybe_unused]] mpl::MetaType auto current,
+                                                       [[maybe_unused]] mpl::MetaType auto
+                                                           desired) {
+        if constexpr(mpl::Value<decltype(desired){}.is_lvalue_reference().value_of()>{}.value_of())
+        {
+            return current.as_lvalue_reference();
+        }
+        else if constexpr(mpl::Value<decltype(desired){}.is_rvalue_reference().value_of()>{}
+                              .value_of())
+        {
+            return current.as_rvalue_reference();
+        }
+        else {
+            return current;
+        }
+    };
 
     static constexpr auto make_qualified_like = []([[maybe_unused]] mpl::MetaType auto current,
                                                    [[maybe_unused]] mpl::MetaType auto desired) {
-        constexpr auto res = decltype(desired){};
-        constexpr auto cur = decltype(current){};
-        if constexpr(res.is_const()) {
-            return make_ref_qualified_like(cur.as_const(), res);
+        if constexpr(mpl::Value<decltype(desired){}.is_const().value_of()>{}.value_of()) {
+            return make_ref_qualified_like(current.as_const(), desired);
         }
         else {
-            return make_ref_qualified_like(cur, res);
+            return make_ref_qualified_like(current, desired);
         }
     };
 
@@ -1332,25 +1331,25 @@ namespace hyperion::variant::detail {
         [[nodiscard]] constexpr auto get(mpl::MetaType auto type) & noexcept -> decltype(auto)
             requires(list.contains(decltype(type){}).value_of())
         {
-            return (*this).get(list.index_of(decltype(type){}));
+            return (*this).get(list.index_of(type));
         }
 
         [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const& noexcept -> decltype(auto)
             requires(list.contains(decltype(type){}).value_of())
         {
-            return (*this).get(list.index_of(decltype(type){}));
+            return (*this).get(list.index_of(type));
         }
 
         [[nodiscard]] constexpr auto get(mpl::MetaType auto type) && noexcept -> decltype(auto)
             requires(list.contains(decltype(type){}).value_of())
         {
-            return std::move(*this).get(list.index_of(decltype(type){}));
+            return std::move(*this).get(list.index_of(type));
         }
 
         [[nodiscard]] constexpr auto get(mpl::MetaType auto type) const&& noexcept -> decltype(auto)
             requires(list.contains(decltype(type){}).value_of())
         {
-            return std::move(*this).get(list.index_of(decltype(type){}));
+            return std::move(*this).get(list.index_of(type));
         }
 
         [[nodiscard]] static consteval auto
