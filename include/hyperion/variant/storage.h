@@ -1093,28 +1093,28 @@ namespace hyperion::variant::detail {
 
     static constexpr auto make_ref_qualified_like([[maybe_unused]] mpl::MetaType auto current,
                                                   [[maybe_unused]] mpl::MetaType auto desired) {
-        using res = decltype(desired);
-        using cur = decltype(current);
-        if constexpr(res{}.is_lvalue_reference()) {
-            return cur{}.as_lvalue_reference();
+        constexpr auto res = decltype(desired){};
+        constexpr auto cur = decltype(current){};
+        if constexpr(res.is_lvalue_reference()) {
+            return cur.as_lvalue_reference();
         }
-        else if constexpr(res{}.is_rvalue_reference()) {
-            return cur{}.as_rvalue_reference();
+        else if constexpr(res.is_rvalue_reference()) {
+            return cur.as_rvalue_reference();
         }
         else {
-            return cur{};
+            return cur;
         }
     }
 
     static constexpr auto make_qualified_like([[maybe_unused]] mpl::MetaType auto current,
                                               [[maybe_unused]] mpl::MetaType auto desired) {
-        using res = decltype(desired);
-        using cur = decltype(current);
-        if constexpr(res{}.is_const()) {
-            return make_ref_qualified_like(cur{}.as_const(), res{});
+        constexpr auto res = decltype(desired){};
+        constexpr auto cur = decltype(current){};
+        if constexpr(res.is_const()) {
+            return make_ref_qualified_like(cur.as_const(), res);
         }
         else {
-            return make_ref_qualified_like(cur{}, res{});
+            return make_ref_qualified_like(cur, res);
         }
     }
 
