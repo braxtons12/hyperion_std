@@ -124,7 +124,11 @@ hyperion_enable_warnings(hyperion_std_main)
 add_test(NAME hyperion_std_main
          COMMAND hyperion_std_main)
 
-add_executable(hyperion_std_tests ${CMAKE_CURRENT_SOURCE_DIR}/src/test_main.cpp)
+set(HYPERION_STD_TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/test_main.cpp
+)
+
+add_executable(hyperion_std_tests ${HYPERION_STD_TEST_SOURCES})
 target_link_libraries(hyperion_std_tests
     PRIVATE
     hyperion::std

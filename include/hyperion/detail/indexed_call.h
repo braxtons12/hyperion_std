@@ -237,10 +237,10 @@ namespace hyperion::detail {
 
         if(!std::is_constant_evaluated()) {
             HYPERION_ASSERT_PRECONDITION(
-                desired < bound,
+                desired < bound.value_of(),
                 "desired ({}) must be strictly less than the upper bound, bound ({})",
                 desired,
-                bound);
+                bound.value_of());
         }
 
         return detail::call(desired, bound, 0_value, std::forward<TFunc>(func));
