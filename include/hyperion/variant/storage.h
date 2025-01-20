@@ -1091,23 +1091,24 @@ namespace hyperion::variant::detail {
     template<typename TType>
     concept Storage = requires(TType value) { value.get(0_value); };
 
-    static constexpr auto make_ref_qualified_like([[maybe_unused]] mpl::MetaType auto current,
-                                                  [[maybe_unused]] mpl::MetaType auto desired) {
-        constexpr auto res = decltype(desired){};
-        constexpr auto cur = decltype(current){};
-        if constexpr(res.is_lvalue_reference()) {
-            return cur.as_lvalue_reference();
-        }
-        else if constexpr(res.is_rvalue_reference()) {
-            return cur.as_rvalue_reference();
-        }
-        else {
-            return cur;
-        }
-    }
+    static constexpr auto make_ref_qualified_like
+        = []([[maybe_unused]] mpl::MetaType auto current,
+             [[maybe_unused]] mpl::MetaType auto desired) {
+              constexpr auto res = decltype(desired){};
+              constexpr auto cur = decltype(current){};
+              if constexpr(res.is_lvalue_reference()) {
+                  return cur.as_lvalue_reference();
+              }
+              else if constexpr(res.is_rvalue_reference()) {
+                  return cur.as_rvalue_reference();
+              }
+              else {
+                  return cur;
+              }
+          };
 
-    static constexpr auto make_qualified_like([[maybe_unused]] mpl::MetaType auto current,
-                                              [[maybe_unused]] mpl::MetaType auto desired) {
+    static constexpr auto make_qualified_like = []([[maybe_unused]] mpl::MetaType auto current,
+                                                   [[maybe_unused]] mpl::MetaType auto desired) {
         constexpr auto res = decltype(desired){};
         constexpr auto cur = decltype(current){};
         if constexpr(res.is_const()) {
@@ -1116,7 +1117,7 @@ namespace hyperion::variant::detail {
         else {
             return make_ref_qualified_like(cur, res);
         }
-    }
+    };
 
     static constexpr auto get_from(Storage auto&& self, mpl::MetaValue auto _index) ->
         typename decltype(make_qualified_like(
