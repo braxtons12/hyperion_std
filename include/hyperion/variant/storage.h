@@ -1091,37 +1091,33 @@ namespace hyperion::variant::detail {
     template<typename TType>
     concept Storage = requires(TType value) { value.get(0_value); };
 
-    static constexpr auto make_ref_qualified_like = []([[maybe_unused]] mpl::MetaType auto current,
-                                                       [[maybe_unused]] mpl::MetaType auto
-                                                           desired) {
-        if constexpr(mpl::Value<decltype(desired){}.is_lvalue_reference().value_of()>{}.value_of())
-        {
-            return current.as_lvalue_reference();
+    template<typename TCurrent, typename TDesired>
+    static constexpr auto make_ref_qualified_like() {
+        if constexpr(mpl::decltype_<TDesired>().is_lvalue_reference()) {
+            return mpl::decltype_<TCurrent>().as_lvalue_reference();
         }
-        else if constexpr(mpl::Value<decltype(desired){}.is_rvalue_reference().value_of()>{}
-                              .value_of())
-        {
-            return current.as_rvalue_reference();
+        else if constexpr(mpl::decltype_<TDesired>().is_rvalue_reference()) {
+            return mpl::decltype_<TCurrent>().as_rvalue_reference();
         }
         else {
-            return current;
+            return mpl::decltype_<TCurrent>();
         }
     };
 
-    static constexpr auto make_qualified_like = []([[maybe_unused]] mpl::MetaType auto current,
-                                                   [[maybe_unused]] mpl::MetaType auto desired) {
-        if constexpr(mpl::Value<decltype(desired){}.is_const().value_of()>{}.value_of()) {
-            return make_ref_qualified_like(current.as_const(), desired);
+    template<typename TCurrent, typename TDesired>
+    static constexpr auto make_qualified_like() {
+        if constexpr(mpl::decltype_<TDesired>().is_const()) {
+            return make_ref_qualified_like<std::add_const_t<TCurrent>, TDesired>();
         }
         else {
-            return make_ref_qualified_like(current, desired);
+            return make_ref_qualified_like<TCurrent, TDesired>();
         }
     };
 
     static constexpr auto get_from(Storage auto&& self, mpl::MetaValue auto _index) ->
-        typename decltype(make_qualified_like(
-            DECLTYPE(std::forward<decltype(self)>(self).get(_index)){},
-            DECLTYPE(std::forward<decltype(self)>(self)){}))::type {
+        typename decltype(make_qualified_like<
+                          decltype(std::forward<decltype(self)>(self).get(_index)),
+                          decltype(std::forward<decltype(self)>(self))>())::type {
         return std::forward<decltype(self)>(self).get(_index);
     }
 
