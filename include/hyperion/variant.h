@@ -213,7 +213,7 @@ namespace hyperion {
         template<typename... TArgs>
         constexpr explicit Variant(mpl::MetaType auto type, TArgs&&... args) noexcept(
             decltype(type){}.is_noexcept_constructible_from(mpl::List<TArgs...>{}))
-            requires(list.count(decltype(type){}) == 1_value)
+            requires((list.count(decltype(type){}) == 1_value).value_of())
                     and (decltype(type){}.is_constructible_from(mpl::List<TArgs...>{}).value_of())
         {
             constexpr auto _index = list.index_of(type);
@@ -227,7 +227,7 @@ namespace hyperion {
             TArgs&&... args) noexcept(decltype(type){}
                                           .is_noexcept_constructible_from(
                                               mpl::List<decltype(ilist), TArgs...>{}))
-            requires(list.count(decltype(type){}) == 1_value)
+            requires((list.count(decltype(type){}) == 1_value).value_of())
                     and (decltype(type){}
                              .is_constructible_from(mpl::List<decltype(ilist), TArgs...>{})
                              .value_of())
