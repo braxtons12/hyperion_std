@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Unit tests for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-01-19
+/// @date 2025-02-25
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
@@ -111,6 +111,8 @@ namespace hyperion::_test::variant {
     using namespace boost::ut::bdd;
 
     static inline const suite<"hyperion::variant"> variant_tests = [] {
+        struct Trivial { };
+
         scenario("default constructor") = [] {
             struct NotDefaultConstructible {
                 NotDefaultConstructible() = delete;
@@ -154,8 +156,36 @@ namespace hyperion::_test::variant {
 
             given("a non-default constructible type") = [] {
                 using type = Variant<NotDefaultConstructible, std::string>;
-                static_assert(not mpl::decltype_<type>().is_noexcept_default_constructible());
-                static_assert(not mpl::decltype_<type>().is_default_constructible());
+
+                then("a variant with that type as the first alternative is not default "
+                     "constructible")
+                    = [] {
+                          expect(that % not mpl::decltype_<type>().is_default_constructible());
+                          expect(that
+                                 % not mpl::decltype_<type>().is_noexcept_default_constructible());
+
+                          static_assert(not mpl::decltype_<type>().is_default_constructible());
+                          static_assert(
+                              not mpl::decltype_<type>().is_noexcept_default_constructible());
+                      };
+            };
+
+            given("a trivial type") = [] {
+                using type = Variant<Trivial>;
+
+                then("a variant with that type as the first alternative is trivially copyable and "
+                     "movable")
+                    = [] {
+                          expect(that % mpl::decltype_<type>().is_trivially_copy_constructible());
+                          expect(that % mpl::decltype_<type>().is_trivially_move_constructible());
+                          expect(that % mpl::decltype_<type>().is_trivially_copy_assignable());
+                          expect(that % mpl::decltype_<type>().is_trivially_move_assignable());
+
+                          static_assert(mpl::decltype_<type>().is_trivially_copy_constructible());
+                          static_assert(mpl::decltype_<type>().is_trivially_move_constructible());
+                          static_assert(mpl::decltype_<type>().is_trivially_copy_assignable());
+                          static_assert(mpl::decltype_<type>().is_trivially_move_assignable());
+                      };
             };
         };
     };

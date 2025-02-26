@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Storage implementation for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-01-19
+/// @date 2025-02-25
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
@@ -163,7 +163,7 @@ namespace hyperion::variant::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(list.at(_index).as_lvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             using type = typename decltype(meta_info::list.at(_index).as_lvalue_reference())::type;
             return static_cast<type>(*this);
@@ -171,7 +171,7 @@ namespace hyperion::variant::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(list.at(_index).as_const().as_lvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             using type = typename decltype(list.at(_index).as_const().as_lvalue_reference())::type;
             return static_cast<type>(*this);
@@ -179,7 +179,7 @@ namespace hyperion::variant::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(list.at(_index).as_rvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             using type = typename decltype(list.at(_index).as_rvalue_reference())::type;
             return static_cast<type>(std::move(*this));
@@ -187,7 +187,7 @@ namespace hyperion::variant::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(list.at(_index).as_const().as_rvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             using type = typename decltype(list.at(_index).as_const().as_rvalue_reference())::type;
             return static_cast<type>(std::move(*this));
@@ -219,7 +219,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_one;
@@ -227,28 +226,28 @@ namespace hyperion::variant::detail {
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(one.as_lvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             return ptr_to_reference(list.at(_index), m_one);
         }
 
         constexpr auto get(mpl::MetaValue auto _index) const& noexcept ->
             typename decltype(one.as_const().as_lvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             return ptr_to_reference(list.at(_index), m_one);
         }
 
         constexpr auto get(mpl::MetaValue auto _index) && noexcept ->
             typename decltype(one.as_rvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             return ptr_to_reference(list.at(_index), std::move(m_one));
         }
 
         constexpr auto get(mpl::MetaValue auto _index) const&& noexcept ->
             typename decltype(one.as_const().as_rvalue_reference())::type
-            requires(_index < list.size())
+            requires((_index < list.size()).value_of())
         {
             return ptr_to_reference(list.at(_index), std::move(m_one));
         }
@@ -273,7 +272,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept {
         }
 
@@ -320,7 +318,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_one;
@@ -387,7 +384,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept {
         }
 
@@ -456,7 +452,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_one;
@@ -537,7 +532,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept {
         }
 
@@ -620,7 +614,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_one;
@@ -715,7 +708,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept {
         }
 
@@ -817,7 +809,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_one;
@@ -931,7 +922,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept {
         }
 
@@ -1040,7 +1030,6 @@ namespace hyperion::variant::detail {
       public:
         constexpr VariantUnion() noexcept {
         }
-
         constexpr ~VariantUnion() noexcept = default;
 
         t_one m_self;
@@ -1272,12 +1261,12 @@ namespace hyperion::variant::detail {
     variant_assignable_requirements([[maybe_unused]] mpl::MetaList auto _list) {
         return [](mpl::MetaType auto type) {
             constexpr auto list = decltype(_list){};
-            list.contains(resolve_overload(list, type))
-                and list.count(resolve_overload(list, type)) == 1_value
-                and (resolve_overload(list, type)
-                         .as_lvalue_reference()
-                         .satisfies(variant::detail::assignable(type))
-                     or resolve_overload(list, type).constructible_from(type));
+            return list.contains(resolve_overload(list, type))
+                   and list.count(resolve_overload(list, type)) == 1_value
+                   and (resolve_overload(list, type)
+                            .as_lvalue_reference()
+                            .satisfies(variant::detail::assignable(type))
+                        or resolve_overload(list, type).constructible_from(type));
         };
     }
 

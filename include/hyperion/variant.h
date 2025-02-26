@@ -3,7 +3,7 @@
 /// @brief Hyperion alternative to standard library `variant`, `hyperion::Variant`,
 /// with improved ergonomics, safety, and reduced possibility of valueless by exception state.
 /// @version 0.1
-/// @date 2025-01-19
+/// @date 2025-02-25
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
@@ -135,6 +135,7 @@ namespace hyperion {
                      .value_of())
     class Variant : public variant::detail::VariantMoveAssignment<TTypes...> {
       private:
+        using base = variant::detail::VariantMoveAssignment<TTypes...>;
         using storage = typename variant::detail::VariantMoveAssignment<TTypes...>::storage;
 
       public:
@@ -194,6 +195,9 @@ namespace hyperion {
             resolve_overload(list, DECLTYPE(value){})
                 .is_noexcept_constructible_from(DECLTYPE(value){}))
             requires(not DECLTYPE(value){}.is(mpl::decltype_<Variant>()).value_of())
+                    and (not DECLTYPE(value){}
+                                 .is_qualification_of(mpl::decltype_<Variant>())
+                                 .value_of())
                     and (not DECLTYPE(value){}.satisfies(detail::is_metatype).value_of())
                     and (not DECLTYPE(value){}.satisfies(detail::is_metavalue).value_of())
                     and (list.contains(resolve_overload(list, DECLTYPE(value){})).value_of)
@@ -261,8 +265,8 @@ namespace hyperion {
         constexpr auto operator=(auto&& value) noexcept(
             DECLTYPE(value){}.satisfies(noexcept_assignable_requirements))
                 -> Variant& requires(
-                    DECLTYPE(value){}.satisfies(assignable_requirements).value_of())
-            and (not DECLTYPE(value){}.is_qualification_of(mpl::decltype_<Variant>()).value_of()) {
+                    not DECLTYPE(value){}.is_qualification_of(mpl::decltype_<Variant>()).value_of())
+            and (DECLTYPE(value){}.satisfies(assignable_requirements).value_of()) {
             assign(list.index_of(resolve_overload(list, DECLTYPE(value){})),
                    std::forward<decltype(value)>(value));
             return *this;
