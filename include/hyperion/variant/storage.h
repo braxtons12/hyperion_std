@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Storage implementation for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-02-25
+/// @date 2026-03-20
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
@@ -39,7 +39,10 @@
 #include <hyperion/platform/def.h>
 #include <hyperion/platform/types.h>
 
-#define DECLTYPE(x) decltype(mpl::decltype_<decltype(x)>())
+#include <cinttypes>
+#include <cstdint>
+
+#define HYPERION_DECLTYPE(x) decltype(mpl::decltype_<decltype(x)>())
 
 namespace hyperion::variant::detail {
     using mpl::operator""_value;
@@ -82,8 +85,8 @@ namespace hyperion::variant::detail {
     }
 
     static constexpr auto reference_to_ptr = [](mpl::MetaType auto type) {
-        if constexpr(type.template apply<std::remove_reference>() != type) {
-            return type.template apply<std::remove_reference>().template apply<std::add_pointer>();
+        if constexpr(type.remove_reference() != type) {
+            return type.as_pointer();
         }
         else {
             return type;
@@ -92,11 +95,9 @@ namespace hyperion::variant::detail {
 
     static constexpr auto ptr_to_reference
         = []([[maybe_unused]] mpl::MetaType auto _type, auto&& ptr) -> decltype(auto) {
-        constexpr auto type = DECLTYPE(ptr){};
+        constexpr auto type = HYPERION_DECLTYPE(ptr){};
         using actual = decltype(_type);
-        if constexpr(type.template apply<std::remove_cvref>().template satisfies<std::is_pointer>()
-                     and actual{}.template satisfies<std::is_reference>())
-        {
+        if constexpr(type.remove_reference().is_pointer() and actual{}.is_reference()) {
             return *ptr;
         }
         else {
@@ -104,21 +105,21 @@ namespace hyperion::variant::detail {
         }
     };
 
-    static constexpr auto enable_ebo(mpl::MetaList auto list) -> bool {
+    static constexpr auto enable_ebo = [](mpl::MetaList auto list) -> bool {
         return list.all_of([](mpl::MetaType auto type) {
-            return type.apply(reference_to_ptr).template satisfies<std::is_empty>()
-                   and type.apply(reference_to_ptr).template satisfies<std::is_trivial>()
+            return type.apply(reference_to_ptr).is_empty()
+                   and type.apply(reference_to_ptr).is_trivial()
                    and type.apply(reference_to_ptr).is_default_constructible();
         });
-    }
+    };
 
-    static constexpr auto disable_ebo(mpl::MetaList auto list) -> bool {
+    static constexpr auto disable_ebo = [](mpl::MetaList auto list) -> bool {
         return list.any_of([](mpl::MetaType auto type) {
-            return not type.apply(reference_to_ptr).template satisfies<std::is_empty>()
-                   or not type.apply(reference_to_ptr).template satisfies<std::is_trivial>()
+            return not type.apply(reference_to_ptr).is_empty()
+                   or not type.apply(reference_to_ptr).is_trivial()
                    or not type.apply(reference_to_ptr).is_default_constructible();
         });
-    }
+    };
 
     template<usize TIndex, typename... TTypes>
     union VariantUnion;
@@ -156,10 +157,18 @@ namespace hyperion::variant::detail {
     ////////////////////////////////////////////////////////////////////////////////////////////////
 
     template<typename... TTypes>
-        requires(enable_ebo(mpl::List<TTypes...>{}))
+        requires(mpl::make_list<TTypes...>().satisfies(enable_ebo).value_of())
     struct VariantEBO : TTypes... {
         using meta_info = MetaInfo<TTypes...>;
         static constexpr auto list = meta_info::list;
+
+        constexpr auto get_address(mpl::MetaValue auto _index) & noexcept ->
+            typename decltype(list.at(_index).as_pointer())::type
+            requires((_index < list.size()).value_of())
+        {
+            using type = typename decltype(list.at(_index).as_pointer())::type;
+            return static_cast<type>(this);
+        }
 
         constexpr auto get(mpl::MetaValue auto _index) & noexcept ->
             typename decltype(list.at(_index).as_lvalue_reference())::type
@@ -205,7 +214,7 @@ namespace hyperion::variant::detail {
                      .apply(reference_to_ptr)
                      .is_trivially_destructible()
                      .value_of())
-                and (disable_ebo(mpl::List<TType>{}))
+                and (mpl::make_list<TType>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
@@ -258,7 +267,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .is_trivially_destructible()
                          .value_of())
-                and (disable_ebo(mpl::List<TType>{}))
+                and (mpl::make_list<TType>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType> {
       public:
         using meta_info = MetaInfo<TType>;
@@ -304,7 +313,7 @@ namespace hyperion::variant::detail {
                      .apply(reference_to_ptr)
                      .all_of(mpl::trivially_destructible)
                      .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2>{}))
+                and (mpl::make_list<TType1, TType2>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
@@ -370,7 +379,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible)
                          .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2>{}))
+                and (mpl::make_list<TType1, TType2>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2> {
       public:
         using meta_info = MetaInfo<TType1, TType2>;
@@ -437,7 +446,7 @@ namespace hyperion::variant::detail {
                      .apply(reference_to_ptr)
                      .all_of(mpl::trivially_destructible)
                      .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
+                and (mpl::make_list<TType1, TType2, TType3>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
@@ -517,7 +526,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible)
                          .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3>{}))
+                and (mpl::make_list<TType1, TType2, TType3>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3>;
@@ -598,7 +607,7 @@ namespace hyperion::variant::detail {
                      .apply(reference_to_ptr)
                      .all_of(mpl::trivially_destructible)
                      .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
+                and (mpl::make_list<TType1, TType2, TType3, TType4>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
@@ -692,7 +701,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible)
                          .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4>{}))
+                and (mpl::make_list<TType1, TType2, TType3, TType4>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4>;
@@ -792,7 +801,7 @@ namespace hyperion::variant::detail {
                      .apply(reference_to_ptr)
                      .all_of(mpl::trivially_destructible)
                      .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
+                and (mpl::make_list<TType1, TType2, TType3, TType4, TType5>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
@@ -905,7 +914,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible)
                          .value_of())
-                and (disable_ebo(mpl::List<TType1, TType2, TType3, TType4, TType5>{}))
+                and (mpl::make_list<TType1, TType2, TType3, TType4, TType5>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TType1, TType2, TType3, TType4, TType5> {
       public:
         using meta_info = MetaInfo<TType1, TType2, TType3, TType4, TType5>;
@@ -1015,7 +1024,7 @@ namespace hyperion::variant::detail {
                          .apply(reference_to_ptr)
                          .all_of(mpl::trivially_destructible)
                          .value_of())
-                and (disable_ebo(mpl::List<TTypes...>{}))
+                and (mpl::make_list<TTypes...>.satisfies(disable_ebo).value_of())
     union VariantUnion<TIndex, TTypes...> {
       public:
         using meta_info = MetaInfo<TTypes...>;
@@ -1110,11 +1119,116 @@ namespace hyperion::variant::detail {
         return std::forward<decltype(self)>(self).get(_index);
     }
 
+    template<typename T>
+    concept HasNicheOffset = requires {
+        T::niche_offset;
+        requires std::same_as<decltype(T::niche_offset), const usize>;
+    };
+
+    static constexpr auto has_niche_offset = []([[maybe_unused]] mpl::MetaType auto _type) {
+        using type = typename decltype(_type)::type;
+        if constexpr(requires { requires HasNicheOffset<type>; }) {
+            return mpl::Value<true>{};
+        }
+        // TODO(braxtons12): when in C++26, use reflection to find padding bytes and use those
+        // if an explicit opt-in isn't present
+        else {
+            return mpl::Value<false>{};
+        }
+    };
+
+    static constexpr auto get_niche_offset = []([[maybe_unused]] mpl::MetaType auto _type)
+        requires((decltype(_type){}.satisfies(has_niche_offset).value_of()))
+    {
+        using type = typename decltype(_type)::type;
+        // TODO(braxtons12): when in C++26, use reflection to find padding bytes and use those
+        return mpl::Value<type::niche_offset>();
+    };
+
+    static constexpr auto
+    calculate_niche_offset([[maybe_unused]] mpl::MetaList auto _offsets,
+                           [[maybe_unused]] mpl::MetaValue auto _alignment,
+                           [[maybe_unused]] mpl::MetaValue auto _offset_index,
+                           [[maybe_unused]] mpl::MetaValue auto _num_offsets) {
+        constexpr auto size = decltype(_num_offsets){};
+        constexpr auto current_index = decltype(_offset_index){};
+        constexpr auto align = decltype(_alignment){};
+        constexpr auto current_offset = align * current_index;
+        constexpr auto offsets = decltype(_offsets){};
+
+        if constexpr(offsets.all_of([](mpl::MetaValue auto offset) {
+                         constexpr auto current_off = decltype(current_offset){};
+                         return decltype(offset){} == current_off;
+                     }))
+        {
+            return mpl::make_pair(current_offset, mpl::Value<true>{});
+        }
+        else if constexpr(size <= 1) {
+            return mpl::make_pair(0_value, mpl::Value<false>{});
+        }
+        else if constexpr(current_index == (size - 1)) {
+            return mpl::make_pair(0_value, mpl::Value<false>{});
+        }
+        else {
+            return calculate_niche_offset(offsets, align, current_index + 1_value, size);
+        }
+    }
+
+    static constexpr auto get_list_niche_offset(mpl::MetaList auto list)
+        requires((decltype(list){}.all_of(has_niche_offset).value_of()))
+    {
+        auto max_size
+            = list.apply([](const mpl::MetaType auto type) { return type.sizeof_(); })
+                  .accumulate(0_value,
+                              [](const mpl::MetaValue auto acc, const mpl::MetaValue auto el) {
+                                  if constexpr(decltype(el){} > decltype(acc){}) {
+                                      return el;
+                                  }
+                                  else {
+                                      return acc;
+                                  }
+                              });
+        auto max_alignment
+            = list.apply([](const mpl::MetaType auto type) {
+                      return type.apply([]([[maybe_unused]] mpl::MetaType auto _type) {
+                          using type = typename decltype(_type)::type;
+                          return mpl::Value<std::alignment_of_v<type>, usize>{};
+                      });
+                  })
+                  .accumulate(0_value,
+                              [](const mpl::MetaValue auto acc, const mpl::MetaValue auto el) {
+                                  if constexpr(decltype(el){} > decltype(acc){}) {
+                                      return el;
+                                  }
+                                  else {
+                                      return acc;
+                                  }
+                              });
+
+        const auto num_offsets = max_size / max_alignment;
+
+        return calculate_niche_offset(list.apply(get_niche_offset),
+                                      max_alignment,
+                                      0_value,
+                                      num_offsets);
+    }
+
+    static constexpr auto enable_niche_optimization = [](mpl::MetaList auto list) {
+        return get_list_niche_offset(list).make_second();
+    };
+
+    /// We use a layout optimization for `Variant<SomeType&, None>` to represent the `None` case
+    /// as `nullptr`. This is a niche optimization
+    static constexpr auto enable_reference_pointer_optimization = [](mpl::MetaList auto list) {
+        return (list.at(0_value).is_lvalue_reference() or list.at(0_value).is_pointer())
+               and list == mpl::List<typename decltype(list.at(0_value))::type, None>{};
+    };
+
     template<typename... TTypes>
     struct VariantStorageBase;
 
     template<typename... TTypes>
-        requires(enable_ebo(mpl::List<TTypes...>{}))
+        requires(mpl::make_list<TTypes...>().satisfies(enable_ebo).value_of())
     struct VariantStorageBase<TTypes...> : public VariantEBO<TTypes...> {
         using impl = VariantEBO<TTypes...>;
         using meta_info = typename impl::meta_info;
@@ -1123,16 +1237,7 @@ namespace hyperion::variant::detail {
         static constexpr auto size = meta_info::size;
         static constexpr size_type invalid_index = static_cast<size_type>(-1);
         static_assert(Storage<impl>);
-
-        size_type m_index = invalid_index;
-
-        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
-            m_index = _index;
-        }
-
-        constexpr auto index() const noexcept -> size_type {
-            return m_index;
-        }
+        static constexpr auto niche_offset = get_list_niche_offset(list).make_first().value_of();
 
         constexpr auto storage() & noexcept -> impl& {
             return *this;
@@ -1152,7 +1257,7 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(disable_ebo(mpl::List<TTypes...>{}))
+        requires(mpl::make_list<TTypes...>().satisfies(disable_ebo).value_of())
     struct VariantStorageBase<TTypes...> {
         using impl = VariantUnion<0_usize, TTypes...>;
         using meta_info = typename impl::meta_info;
@@ -1163,15 +1268,6 @@ namespace hyperion::variant::detail {
         static_assert(Storage<impl>);
 
         impl m_union;
-        size_type m_index = invalid_index;
-
-        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
-            m_index = _index;
-        }
-
-        constexpr auto index() const noexcept -> size_type {
-            return m_index;
-        }
 
         constexpr auto storage() & noexcept -> impl& {
             return m_union;
@@ -1190,12 +1286,13 @@ namespace hyperion::variant::detail {
         }
     };
 
-    template<typename TType1>
-        requires(disable_ebo(mpl::List<TType1, None>{}))
-                and (mpl::decltype_<TType1>().is_lvalue_reference()
-                     or mpl::decltype_<TType1>().template satisfies<std::is_pointer>())
-    struct VariantStorageBase<TType1, None> {
-        using impl = VariantUnion<0_usize, TType1, None>;
+    template<typename... TTypes>
+        requires(mpl::make_list<TTypes...>().satisfies(disable_ebo).value_of())
+                and (mpl::make_list<TTypes...>()
+                         .satisfies(enable_reference_pointer_optimization)
+                         .value_of())
+    struct VariantStorageBase<TTypes...> {
+        using impl = VariantUnion<0_usize, TTypes...>;
         using meta_info = typename impl::meta_info;
         static constexpr auto list = impl::list;
         using size_type = typename meta_info::size_type;
@@ -1229,6 +1326,75 @@ namespace hyperion::variant::detail {
 
         constexpr auto storage() const&& noexcept -> const impl&& {
             return std::move(*this).m_union;
+        }
+    };
+
+    template<typename... TTypes>
+    struct VariantNicheOptimization;
+
+    template<typename... TTypes>
+        requires(mpl::make_list<TTypes...>().satisfies(enable_niche_optimization).value_of())
+    struct VariantNicheOptimization<TTypes...> : VariantStorageBase<TTypes...> {
+        using impl = VariantStorageBase<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::size;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+        static constexpr auto niche_offset = get_list_niche_offset(list).make_first().value_of();
+
+        constexpr auto set_index(size_type index) noexcept -> void {
+            static_cast<char*>(this)[niche_offset] = index;
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return static_cast<const char*>(this)[niche_offset];
+        }
+    };
+
+    template<typename... TTypes>
+        requires(not mpl::make_list<TTypes...>().satisfies(enable_niche_optimization).value_of())
+    struct VariantNicheOptimization<TTypes...> : VariantStorageBase<TTypes...> {
+        using impl = VariantStorageBase<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::size;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+        static constexpr auto niche_offset = get_list_niche_offset(list).make_first().value_of();
+
+        size_type m_index = invalid_index;
+        constexpr auto set_index(size_type index) noexcept -> void {
+            m_index = index;
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return m_index;
+        }
+    };
+
+    template<typename... TTypes>
+        requires(mpl::make_list<TTypes...>().satisfies(disable_ebo).value_of())
+                and (mpl::make_list<TTypes...>()
+                         .satisfies(enable_reference_pointer_optimization)
+                         .value_of())
+    struct VariantNicheOptimization<TTypes...> : VariantStorageBase<TTypes...> {
+        using impl = VariantStorageBase<TTypes...>;
+        using meta_info = typename impl::meta_info;
+        static constexpr auto list = impl::list;
+        using size_type = typename meta_info::size_type;
+        static constexpr auto size = meta_info::size;
+        static constexpr size_type invalid_index = static_cast<size_type>(-1);
+        static constexpr auto niche_offset = get_list_niche_offset(list).make_first().value_of();
+
+        constexpr auto set_index([[maybe_unused]] size_type _index) noexcept -> void {
+            if(_index == 1) {
+                this->m_union.get(0_value) = nullptr;
+            }
+        }
+
+        constexpr auto index() const noexcept -> size_type {
+            return this->m_union.get(0_value) == nullptr ? 1 : 0;
         }
     };
 
@@ -1271,8 +1437,8 @@ namespace hyperion::variant::detail {
     }
 
     template<typename... TTypes>
-    struct VariantStorage : public VariantStorageBase<TTypes...> {
-        using impl = VariantStorageBase<TTypes...>;
+    struct VariantStorage : public VariantNicheOptimization<TTypes...> {
+        using impl = VariantNicheOptimization<TTypes...>;
         using meta_info = typename impl::meta_info;
         static constexpr auto list = impl::list;
         using size_type = typename meta_info::size_type;
@@ -1377,16 +1543,10 @@ namespace hyperion::variant::detail {
                     and (list.at(decltype(_index){})
                              .is_constructible_from(mpl::List<TArgs...>{})
                              .value_of())
-                    and (not(list.at(0_value).is_lvalue_reference()
-                             and list
-                                     == mpl::List<typename decltype(list.at(0_value))::type,
-                                                  None>{})
-                                .value_of()
+                    and (not list.satisfies(enable_reference_pointer_optimization).value_of()
                          or mpl::List<TArgs...>{}.size() == 1_value)
         {
-            if constexpr(list.at(0_value).is_lvalue_reference()
-                         and list == mpl::List<typename decltype(list.at(0_value))::type, None>{})
-            {
+            if constexpr(list.satisfies(enable_reference_pointer_optimization)) {
                 if constexpr(decltype(_index){} == 0_value) {
                     std::construct_at(std::addressof(this->get(0_value)), std::addressof(args)...);
                 }
@@ -1425,9 +1585,7 @@ namespace hyperion::variant::detail {
         {
             constexpr auto new_variant = list.at(decltype(_index){});
 
-            if constexpr(list.at(0_value).is_lvalue_reference()
-                         and list == mpl::List<typename decltype(list.at(0_value))::type, None>{})
-            {
+            if constexpr(list.satisfies(enable_reference_pointer_optimization)) {
                 if constexpr(decltype(_index){} == 0_value) {
                     if(this->get(0_value) == nullptr) {
                         construct(0_value, std::addressof(std::forward<TArg>(arg)));
@@ -1725,12 +1883,14 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(
-            mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::copy_assignable).value_of()
-            and not mpl::List<TTypes...>{}
-                        .apply(reference_to_ptr)
-                        .all_of(mpl::trivially_copy_assignable)
-                        .value_of())
+        requires(mpl::List<TTypes...>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::copy_assignable)
+                     .value_of())
+                and (not mpl::List<TTypes...>{}
+                             .apply(reference_to_ptr)
+                             .all_of(mpl::trivially_copy_assignable)
+                             .value_of())
     struct VariantCopyAssignment<TTypes...> : public VariantCopyConstructor<TTypes...> {
         using storage = typename VariantCopyConstructor<TTypes...>::storage;
         using base = VariantCopyConstructor<TTypes...>;
@@ -1814,8 +1974,8 @@ namespace hyperion::variant::detail {
         requires(mpl::List<TTypes...>{}
                      .apply(reference_to_ptr)
                      .all_of(mpl::move_constructible)
-                     .value_of()
-                 and not mpl::List<TTypes...>{}
+                     .value_of())
+                and (not mpl::List<TTypes...>{}
                              .apply(reference_to_ptr)
                              .all_of(mpl::trivially_move_constructible)
                              .value_of())
@@ -1894,12 +2054,14 @@ namespace hyperion::variant::detail {
     };
 
     template<typename... TTypes>
-        requires(
-            mpl::List<TTypes...>{}.apply(reference_to_ptr).all_of(mpl::move_assignable).value_of()
-            and not mpl::List<TTypes...>{}
-                        .apply(reference_to_ptr)
-                        .all_of(mpl::trivially_move_assignable)
-                        .value_of())
+        requires(mpl::List<TTypes...>{}
+                     .apply(reference_to_ptr)
+                     .all_of(mpl::move_assignable)
+                     .value_of())
+                and (not mpl::List<TTypes...>{}
+                             .apply(reference_to_ptr)
+                             .all_of(mpl::trivially_move_assignable)
+                             .value_of())
     struct VariantMoveAssignment<TTypes...> : public VariantMoveConstructor<TTypes...> {
         using storage = typename VariantMoveConstructor<TTypes...>::storage;
         using base = VariantMoveConstructor<TTypes...>;
@@ -1964,6 +2126,6 @@ namespace hyperion::variant::detail {
     };
 } // namespace hyperion::variant::detail
 
-#undef DECLTYPE
+#undef HYPERION_DECLTYPE
 
 #endif // HYPERION_STD_VARIANT_STORAGE_H

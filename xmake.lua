@@ -2,7 +2,7 @@
 set_project("hyperion_std")
 set_version("0.1.0")
 
-set_xmakever("2.8.7")
+set_xmakever("3.0.0")
 
 set_languages("cxx20")
 

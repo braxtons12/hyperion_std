@@ -2,7 +2,7 @@
 /// @author Braxton Salyer <braxtonsalyer@gmail.com>
 /// @brief Unit tests for hyperion::Variant.
 /// @version 0.1
-/// @date 2025-02-25
+/// @date 2026-03-20
 ///
 /// MIT License
 /// @copyright Copyright (c) 2025 Braxton Salyer <braxtonsalyer@gmail.com>
@@ -110,6 +110,77 @@ namespace hyperion::_test::variant {
     // NOLINTNEXTLINE(google-build-using-namespace)
     using namespace boost::ut::bdd;
 
+    struct niche_0_align1 {
+        static constexpr auto niche_offset = 0_usize;
+    };
+
+    struct niche_1_align1 {
+        static constexpr auto niche_offset = 1_usize;
+        u8 val;
+        u8 val2;
+    };
+
+    struct alignas(2) niche_1_align2 {
+        static constexpr auto niche_offset = 1_usize;
+        u8 val;
+    };
+
+    struct niche_4_align2 {
+        static constexpr auto niche_offset = 4_usize;
+        u16 val;
+        u16 val2;
+        u16 val3;
+    };
+
+    struct niche_4_align4 {
+        static constexpr auto niche_offset = 4_usize;
+        u32 val;
+        u32 val2;
+    };
+
+    static_assert(hyperion::variant::detail::HasNicheOffset<niche_0_align1>);
+    static_assert(hyperion::variant::detail::HasNicheOffset<niche_1_align1>);
+    static_assert(hyperion::variant::detail::HasNicheOffset<niche_4_align2>);
+    static_assert(hyperion::variant::detail::HasNicheOffset<niche_4_align4>);
+    static_assert(hyperion::variant::detail::has_niche_offset(mpl::decltype_<niche_0_align1>()));
+
+    constexpr auto incompatible_niches_incompatible_offsets
+        = mpl::make_list(mpl::decltype_<niche_0_align1>(), mpl::decltype_<niche_1_align1>());
+    constexpr auto incompatible_niches_incompatible_align
+        = mpl::make_list(mpl::decltype_<niche_1_align1>(), mpl::decltype_<niche_1_align2>());
+    constexpr auto incompatible_niches_niche_is_not_aligned
+        = mpl::make_list(mpl::decltype_<niche_1_align2>());
+    constexpr auto compatible_niches
+        = mpl::make_list(mpl::decltype_<niche_4_align2>(), mpl::decltype_<niche_4_align4>());
+    constexpr auto compatible_niches_single_element
+        = mpl::make_list(mpl::decltype_<niche_4_align2>());
+
+    static_assert(incompatible_niches_incompatible_offsets
+                      .all_of(hyperion::variant::detail::has_niche_offset)
+                      .value_of());
+    static_assert(
+        hyperion::variant::detail::get_list_niche_offset(incompatible_niches_incompatible_offsets)
+            .make_second()
+        == false);
+    static_assert(
+        hyperion::variant::detail::get_list_niche_offset(incompatible_niches_incompatible_align)
+            .make_second()
+        == false);
+    static_assert(
+        hyperion::variant::detail::get_list_niche_offset(incompatible_niches_niche_is_not_aligned)
+            .make_second()
+        == false);
+    static_assert(hyperion::variant::detail::get_list_niche_offset(compatible_niches).make_second()
+                  == true);
+    static_assert(hyperion::variant::detail::get_list_niche_offset(compatible_niches).make_first()
+                  == 4);
+    static_assert(hyperion::variant::detail::get_list_niche_offset(compatible_niches_single_element)
+                      .make_second()
+                  == true);
+    static_assert(hyperion::variant::detail::get_list_niche_offset(compatible_niches_single_element)
+                      .make_first()
+                  == 4);
+
     static inline const suite<"hyperion::variant"> variant_tests = [] {
         scenario("default constructor") = [] {
             struct NotDefaultConstructible {
@@ -143,29 +214,25 @@ namespace hyperion::_test::variant {
                 };
 
                 then("a variant with that type as the first alternative is noexcept default "
-                     "constructible")
-                    = [] {
-                          using type = Variant<DefaultConstructible, NotDefaultConstructible>;
-                          static_assert(mpl::decltype_<type>().is_noexcept_default_constructible());
+                     "constructible") = [] {
+                    using type = Variant<DefaultConstructible, NotDefaultConstructible>;
+                    static_assert(mpl::decltype_<type>().is_noexcept_default_constructible());
 
-                          expect(that % type{}.holds_alternative<DefaultConstructible>());
-                      };
+                    expect(that % type{}.holds_alternative<DefaultConstructible>());
+                };
             };
 
             given("a non-default constructible type") = [] {
                 using type = Variant<NotDefaultConstructible, std::string>;
 
                 then("a variant with that type as the first alternative is not default "
-                     "constructible")
-                    = [] {
-                          expect(that % not mpl::decltype_<type>().is_default_constructible());
-                          expect(that
-                                 % not mpl::decltype_<type>().is_noexcept_default_constructible());
+                     "constructible") = [] {
+                    expect(that % not mpl::decltype_<type>().is_default_constructible());
+                    expect(that % not mpl::decltype_<type>().is_noexcept_default_constructible());
 
-                          static_assert(not mpl::decltype_<type>().is_default_constructible());
-                          static_assert(
-                              not mpl::decltype_<type>().is_noexcept_default_constructible());
-                      };
+                    static_assert(not mpl::decltype_<type>().is_default_constructible());
+                    static_assert(not mpl::decltype_<type>().is_noexcept_default_constructible());
+                };
             };
         };
 
@@ -176,48 +243,46 @@ namespace hyperion::_test::variant {
 
                 then("a variant with a trivial type as the only alternative is trivially copyable "
                      "and "
-                     "movable")
-                    = [] {
-                          using type = Variant<Trivial>;
+                     "movable") = [] {
+                    using type = Variant<Trivial>;
 
-                          expect(that % mpl::decltype_<type>().is_trivially_copy_constructible());
-                          expect(that % mpl::decltype_<type>().is_trivially_move_constructible());
-                          expect(that % mpl::decltype_<type>().is_trivially_copy_assignable());
-                          expect(that % mpl::decltype_<type>().is_trivially_move_assignable());
+                    expect(that % mpl::decltype_<type>().is_trivially_copy_constructible());
+                    expect(that % mpl::decltype_<type>().is_trivially_move_constructible());
+                    expect(that % mpl::decltype_<type>().is_trivially_copy_assignable());
+                    expect(that % mpl::decltype_<type>().is_trivially_move_assignable());
 
-                          static_assert(mpl::decltype_<type>().is_trivially_copy_constructible());
-                          static_assert(mpl::decltype_<type>().is_trivially_move_constructible());
-                          static_assert(mpl::decltype_<type>().is_trivially_copy_assignable());
-                          static_assert(mpl::decltype_<type>().is_trivially_move_assignable());
-                      };
+                    static_assert(mpl::decltype_<type>().is_trivially_copy_constructible());
+                    static_assert(mpl::decltype_<type>().is_trivially_move_constructible());
+                    static_assert(mpl::decltype_<type>().is_trivially_copy_assignable());
+                    static_assert(mpl::decltype_<type>().is_trivially_move_assignable());
+                };
 
                 then("a variant with only trivial alternatives is trivially copyable and "
-                     "movable")
-                    = [] {
-                          using type = Variant<Trivial, Trivial2>;
+                     "movable") = [] {
+                    using type = Variant<Trivial, Trivial2>;
 
-                          expect(that % mpl::decltype_<type>().is_trivially_copy_constructible());
-                          expect(that % mpl::decltype_<type>().is_trivially_move_constructible());
-                          expect(that % mpl::decltype_<type>().is_trivially_copy_assignable());
-                          expect(that % mpl::decltype_<type>().is_trivially_move_assignable());
+                    expect(that % mpl::decltype_<type>().is_trivially_copy_constructible());
+                    expect(that % mpl::decltype_<type>().is_trivially_move_constructible());
+                    expect(that % mpl::decltype_<type>().is_trivially_copy_assignable());
+                    expect(that % mpl::decltype_<type>().is_trivially_move_assignable());
 
-                          static_assert(mpl::decltype_<type>().is_trivially_copy_constructible());
-                          static_assert(mpl::decltype_<type>().is_trivially_move_constructible());
-                          static_assert(mpl::decltype_<type>().is_trivially_copy_assignable());
-                          static_assert(mpl::decltype_<type>().is_trivially_move_assignable());
+                    static_assert(mpl::decltype_<type>().is_trivially_copy_constructible());
+                    static_assert(mpl::decltype_<type>().is_trivially_move_constructible());
+                    static_assert(mpl::decltype_<type>().is_trivially_copy_assignable());
+                    static_assert(mpl::decltype_<type>().is_trivially_move_assignable());
 
-                          auto val = type{};
-                          expect(that % val.holds_alternative<Trivial>());
+                    auto val = type{};
+                    expect(that % val.holds_alternative<Trivial>());
 
-                          auto val2 = val;
-                          expect(that % val2.holds_alternative<Trivial>());
+                    auto val2 = val;
+                    expect(that % val2.holds_alternative<Trivial>());
 
-                          auto val3 = type{mpl::decltype_<Trivial2>()};
-                          expect(that % val3.holds_alternative<Trivial2>());
+                    auto val3 = type{mpl::decltype_<Trivial2>()};
+                    expect(that % val3.holds_alternative<Trivial2>());
 
-                          auto val4 = val3;
-                          expect(that % val4.holds_alternative<Trivial2>());
-                      };
+                    auto val4 = val3;
+                    expect(that % val4.holds_alternative<Trivial2>());
+                };
             };
         };
     };
